@@ -1,26 +1,66 @@
 class Waypoint:
     """
-    A waypoint is a dataclass which represents a cartesian coordinate and the duration that
-    said coordinate is occupied.
+    A waypoint is a dataclass which either represents a leg of a journey, or an action being performed between two legs.
     """
-    INDEFINITE = "INDEFINITE"
-    BEING_RECHARGED = "BEING_RECHARGED"
-    GIVING_RECHARGE = "GIVING_RECHARGE"
+    INDEFINITE = "indefinite"
+
+    BEING_RECHARGED = "being_recharged"
+    GIVING_RECHARGE = "giving_recharge"
 
     @classmethod
     def from_dict(cls, waypoint_dict: dict) -> 'Waypoint':
         instance = cls(
-            cartesian_position=waypoint_dict['cartesian_position'],
-            wait=waypoint_dict.get('wait', 0),
-            action=waypoint_dict.get('action')
+            cartesian_positions=waypoint_dict.get('cartesian_positions'),
+            type=waypoint_dict['type'],
+            action=waypoint_dict.get('action'),
+            duration=waypoint_dict.get('duration')
         )
 
         return instance
 
-    def __init__(self, cartesian_position, wait, action=None):
-        self.cartesian_position = cartesian_position
-        self.action = action
-        self.wait = self.INDEFINITE if wait == -1 else wait
+    def __init__(self, type, action=None, duration=None, cartesian_positions=None):
+        self.type = type
+
+        self.action = None
+        self.duration = None
+        self.cartesian_positions = None
+
+        if self.type == 'leg':
+            assert cartesian_positions is not None
+            self.cartesian_positions = cartesian_positions
+
+        elif self.type == 'action':
+            assert action is not None
+            self.action = action
+
+            assert duration is not None
+            self.duration = duration
+
+    @property
+    def is_definite(self):
+        if self.is_leg:
+            return True
+
+        elif self.is_action:
+            return self.duration != self.INDEFINITE
+
+    @property
+    def is_leg(self):
+        return self.type == 'leg'
+
+    @property
+    def is_action(self):
+        return self.type == 'action'
+
+    @property
+    def from_pos(self):
+        assert self.is_leg
+        return self.cartesian_positions['from']
+
+    @property
+    def to_pos(self):
+        assert self.is_leg
+        return self.cartesian_positions['to']
 
     @property
     def is_being_recharged(self):
@@ -30,13 +70,17 @@ class Waypoint:
     def is_giving_recharge(self):
         return self.action == Waypoint.GIVING_RECHARGE
 
-    @property
-    def has_wait(self):
-        return self.wait != Waypoint.INDEFINITE
-
     def to_dict(self) -> dict:
-        return {
-            'cartesian_position': self.cartesian_position,
-            'wait': self.wait if not self.wait == self.INDEFINITE else -1,
-            'action': self.action
-        }
+        if self.is_action:
+            return {
+                'type': self.type,
+                'action': self.action,
+                'duration': self.duration
+            }
+        elif self.is_leg:
+            return {
+                'cartesian_positions': self.cartesian_positions,
+                'type': self.type,
+            }
+        else:
+            return {}

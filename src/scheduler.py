@@ -35,10 +35,14 @@ class Scheduler:
         For a given flight plan, determine when all the supporting bots need to be deployed and their
         respective flight plans
         """
+        # Add an refueling waypoints to the flight plan
         self.recalculate_flight_plan(flight_plan)
 
         with open('hello.json', 'w') as f:
             f.write(json.dumps(flight_plan.to_dict()))
+
+        # For each refueling waypoint in the flight plan, create a resupply flight plan
+        resupply_flight_plans = "Cant do this without knowing which towers can be used"
 
         schedule = Schedule()
         return schedule
@@ -48,83 +52,91 @@ class Scheduler:
         For a given flight plan, add any necessary refueling waypoints
         """
         if flight_plan.is_definite:
-            # Based on the range, determine how many assistant bots are needed
-            #main_bot_refills_required = maths.ceil(flight_plan.flight_time / (self.bot.flight_time - self.remaining_flight_time_at_refuel))
-
-            # For each assistant bot, determine how many assistants are needed and when they need to be deployed
             finished = False
-            count = 0
-            while not finished and count < 100:
-                print(f"Count {count}")
-                count = count + 1
+            while not finished:
                 time_since_last_recharge = 0
 
                 for index, waypoint in enumerate(flight_plan.waypoints):
-                    print(f"Count {count}, index {index}")
-                    if not index:
-                        reference_position = flight_plan.starting_position
-                    else:
-                        reference_position = flight_plan.waypoints[index - 1].cartesian_position
+                    if waypoint.is_action:
+                        if waypoint.is_being_recharged:
+                            print("Waypoint is being recharged")
+                            time_since_last_recharge = 0
+                            continue
 
-                    print(f"Reference position is {reference_position}")
-                    if waypoint.is_giving_recharge:
-                        print("Waypoint is being recharged")
-                        time_since_last_recharge = 0
+                        # Else we will look at the duration of the action, and split it if necessary
+                        time_since_last_recharge += waypoint.duration
+
+                        threshold = flight_plan.bot.flight_time - self.remaining_flight_time_at_refuel - self.refuel_duration
+                        if time_since_last_recharge > threshold:
+                            overshoot = time_since_last_recharge - threshold
+                            waypoint.duration = waypoint.duration - overshoot
+
+                            # Create the refueling waypoint
+                            new_waypoint = Waypoint(
+                                type='action',
+                                action='being_recharged',
+                                duration=self.refuel_duration
+                            )
+
+                            flight_plan.waypoints.insert(index + 1, new_waypoint)
+
+                            # Create the action waypoint with the remaining overshoot
+                            new_waypoint = Waypoint(
+                                type='action',
+                                action=waypoint.action,
+                                duration=overshoot
+                            )
+
+                            flight_plan.waypoints.insert(index + 2, new_waypoint)
+                            print("Breaking from action overshoot")
+                            break
+
+                        print("Continuing from action")
                         continue
 
-                    distance = distance_between(reference_position, waypoint.cartesian_position)
-                    time_between_waypoints = distance / flight_plan.bot.speed
-                    time_since_last_waypoint = time_between_waypoints + waypoint.wait
-                    time_since_last_recharge = time_since_last_recharge + time_since_last_waypoint
+                    elif waypoint.is_leg:
+                        leg_time = int(distance_between(waypoint.from_pos, waypoint.to_pos))
+                        time_since_last_recharge += leg_time
 
-                    if time_since_last_recharge >= (flight_plan.bot.flight_time - self.remaining_flight_time_at_refuel):
-                        print(f"Time since last recharge is {time_since_last_recharge}")
-                        # We need to add a recharge waypoint
+                        threshold = flight_plan.bot.flight_time - self.remaining_flight_time_at_refuel - self.refuel_duration
+                        print(f"Leg, time since last {time_since_last_recharge}, threshold {threshold}")
+                        if time_since_last_recharge > threshold:
+                            overshoot = time_since_last_recharge - threshold
 
-                        # We need to determine where to put the waypoint
-                        time_overshoot = time_since_last_recharge - (flight_plan.bot.flight_time - self.remaining_flight_time_at_refuel)
-                        print(f"Overshoot is {time_overshoot}")
+                            # We will split the leg into two legs with a refuel inbetween
+                            overshoot_ratio = (leg_time - overshoot) / leg_time
+                            split_position = [
+                                waypoint.from_pos[i] + (waypoint.to_pos[i] - waypoint.from_pos[i]) * overshoot_ratio
+                                for i in [0, 1, 2]
+                            ]
 
-                        # If the overshoot is in the waiting period, we can add a waypoint after in the same position
-                        if waypoint.has_wait and time_overshoot <= waypoint.wait:
-                            print("Overshoot is in wait")
+                            # Create the refuel
                             new_waypoint = Waypoint(
-                                cartesian_position=waypoint.cartesian_position,
-                                wait=self.refuel_duration,
-                                action=Waypoint.GIVING_RECHARGE
+                                type='action',
+                                action='being_recharged',
+                                duration=self.refuel_duration
                             )
+
                             flight_plan.waypoints.insert(index + 1, new_waypoint)
-                        elif waypoint.has_wait:
-                            print("Overshoot isnt in wait, but there is a wait")
-                            time_overshoot = time_overshoot - waypoint.wait
-                        else:
-                            pass
 
+                            # Create the second leg
+                            new_waypoint = Waypoint(
+                                type='leg',
+                                cartesian_positions={
+                                    'from': split_position,
+                                    'to': waypoint.cartesian_positions['to']
+                                }
+                            )
 
-                        # We will create a waypoint before the current one
-                        # The time from the start of the n - 1 waypoint to the waypoint
-                        # The ratio between this and the last waypoint
-                        waypoint_ratio = (time_since_last_waypoint - time_overshoot) / time_since_last_waypoint
-                        print(f"Waypoint ratio is {waypoint_ratio}")
-                        print(f"Reference {reference_position}, ratio {waypoint_ratio}, waypoint {waypoint.cartesian_position}")
-                        waypoint_position = [
-                            reference_position[i] + waypoint_ratio * (waypoint.cartesian_position[i] - reference_position[i])
-                            for i in [0, 1, 2]
-                        ]
-                        print(f"New waypoint position is {waypoint_position}")
-                        new_waypoint = Waypoint(
-                            cartesian_position=waypoint_position,
-                            wait=self.refuel_duration,
-                            action=Waypoint.GIVING_RECHARGE
-                        )
-                        flight_plan.waypoints.insert(index, new_waypoint)
-                        print("Breaking")
-                        break
+                            flight_plan.waypoints.insert(index + 2, new_waypoint)
+
+                            # Turn the leg into just the first leg
+                            waypoint.cartesian_positions['to'] = split_position
+                            print("Breaking from leg overshoot")
+                            break
+
+                        print("Continuing from leg")
+                        continue
+
                 else:
                     finished = True
-        """
-        else:
-            # We can't statically create a schedule, and instead need to create a dynamic schedule
-            # Somehow..
-            pass
-        """

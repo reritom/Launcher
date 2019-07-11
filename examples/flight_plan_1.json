@@ -1,21 +1,36 @@
 {
-  "bot": {
-    "type": "MarkI",
-    "flight_time": 1200,
-    "speed": 1
-  },
-  "starting_position": [0, 0, 0],
-  "waypoints": [
-    {
-      "cartesian_position": [5000, 5000, 5000]
-    },
-    {
-      "cartesian_position": [10000, 10000, 10000],
-      "wait": 1000,
-      "action": "payload"
-    },
-    {
-      "cartesian_position": [0, 0, 0]
-    }
-  ]
+   "bot":{
+      "type":"MarkI",
+      "flight_time":1200,
+      "speed":1
+   },
+   "starting_position":[0, 0, 0],
+   "waypoints":[
+      {
+         "type":"leg",
+         "cartesian_positions":{
+            "from":[0, 0, 0],
+            "to":[5000, 5000, 5000]
+         }
+      },
+      {
+         "type":"action",
+         "action":"payload",
+         "duration":1000
+      },
+      {
+         "type":"leg",
+         "cartesian_positions":{
+            "from":[5000, 5000, 5000],
+            "to":[10000, 10000, 10000]
+         }
+      },
+      {
+         "type":"leg",
+         "cartesian_positions":{
+            "from":[10000, 10000, 10000],
+            "to":[0, 0, 0]
+         }
+      }
+   ]
 }

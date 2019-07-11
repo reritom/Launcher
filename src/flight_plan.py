@@ -39,7 +39,7 @@ class FlightPlan:
 
     def is_definite(self) -> bool:
         for waypoint in self.waypoints:
-            if waypoint.wait == waypoint.INDEFINITE:
+            if waypoint.duration == waypoint.INDEFINITE:
                 return False
         else:
             return True
@@ -51,37 +51,23 @@ class FlightPlan:
 
         total_distance = 0
 
-        for index, waypoint in enumerate(self.waypoints):
-            if not index:
-                # For the first waypoint, we compare it to the starting position
-                reference_position = self.starting_position
-            else:
-                # Else we compare to the previous
-                reference_position = self.waypoint[index - 1]
+        for waypoint in self.waypoints:
+            if waypoint.is_leg:
+                total_distance = distance_between(waypoint.from_pos, waypoint.to_pos)
 
-            total_distance = total_distance + distance_between(self.starting_position, waypoint.cartesian_position)
         return total_distance
 
     @property
     def flight_time(self) -> Optional[int]:
-        if not self.is_definite:
-            return None
-
         flight_time = 0
 
-        for index, waypoint in enumerate(self.waypoints):
-            if not index:
-                # For the first waypoint, we compare it to the starting position
-                reference_position = self.starting_position
-            else:
-                # Else we compare to the previous
-                reference_position = self.waypoint[index - 1]
+        for waypoint in self.waypoints:
+            if waypoint.is_leg:
+                distance = distance_between(waypoint.from_pos, waypoint.to_pos)
+                time = distance / self.bot.speed
 
-            distance = distance_between(self.starting_position, waypoint.cartesian_position)
-            time = distance / self.bot.speed
-
-            if waypoint.wait:
-                time = time + waypoint.wait
+            elif waypoint.is_action:
+                time = time + waypoint.duration
 
             flight_time = flight_time + time
 
