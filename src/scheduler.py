@@ -8,6 +8,7 @@ from .tower import Tower
 from .waypoint import Waypoint
 
 from .tools import distance_between
+import datetime
 
 class Scheduler:
     def __init__(self, towers: List[Tower], refuel_duration: int, remaining_flight_time_at_refuel: int):
@@ -15,22 +16,14 @@ class Scheduler:
         self.refuel_duration = refuel_duration
         self.remaining_flight_time_at_refuel = remaining_flight_time_at_refuel
 
-    @classmethod
-    def from_config_file(cls, filepath: str) -> 'Scheduler':
-        with open(filepath, 'r') as f:
-            configuration_dict = json.load(f)
+    def determine_schedule_from_waypoint_eta(self, flight_plan: FlightPlan, waypoint_eta: datetime.datetime, waypoint_id: str) -> Schedule:
+        """
+        Determine the schedule based on the time the client wants the bot to reach a certain waypoint.
+        If the schedules requires the first launch to be in the past, the schedule is marked as unapplicable.
+        """
+        assert waypoint_id in [waypoint.id for waypoint in flight_time.waypoints]
 
-        return cls.from_dict(configuration_dict)
-
-    @classmethod
-    def from_dict(cls, configuration_dict: dict) -> 'Scheduler':
-        return cls(
-            towers=[Tower.from_dict(tower_dict) for tower_dict in configuration_dict.get('towers', [])],
-            refuel_duration=configuration_dict['refuel_duration'],
-            remaining_flight_time_at_refuel=configuration_dict['remaining_flight_time_at_refuel']
-        )
-
-    def determine_schedule(self, flight_plan: FlightPlan) -> Schedule:
+    def determine_schedule_from_launch_time(self, flight_plan: FlightPlan, launch_time: datetime.datetime) -> Schedule:
         """
         For a given flight plan, determine when all the supporting bots need to be deployed and their
         respective flight plans
@@ -38,14 +31,31 @@ class Scheduler:
         # Add an refueling waypoints to the flight plan
         self.recalculate_flight_plan(flight_plan)
 
+        # Flight plans don't consider absolute timings, so here will will add some approximates
+        self.approximate_timings(flight_plan, launch_time)
+
         with open('hello.json', 'w') as f:
             f.write(json.dumps(flight_plan.to_dict()))
 
         # For each refueling waypoint in the flight plan, create a resupply flight plan
-        resupply_flight_plans = "Cant do this without knowing which towers can be used"
+        resupply_flight_plans = self.create_refuel_flight_plans(flight_plan)
+        print(f"Updated flight plan has {len(flight_plan.waypoints)} waypoints")
 
         schedule = Schedule()
         return schedule
+
+    def approximate_timings(self, flight_plan, launch_time):
+        """
+        For a given flight plan and launch time, approximate the start and end time of each waypoint
+        """
+
+        for index, waypoint in enumerate(flight_plan.waypoints):
+            waypoint.start_time = launch_time if not index else flight_plan.waypoints[index - 1].end_time
+
+            if waypoint.is_action:
+                waypoint.end_time = waypoint.start_time + datetime.timedelta(seconds=waypoint.duration)
+            elif waypoint.is_leg:
+                waypoint.end_time = waypoint.start_time + datetime.timedelta(seconds=distance_between(waypoint.from_pos, waypoint.to_pos)/flight_plan.bot.speed)
 
     def recalculate_flight_plan(self, flight_plan):
         """
@@ -140,3 +150,10 @@ class Scheduler:
 
                 else:
                     finished = True
+
+    def create_refuel_flight_plans(self, flight_plan):
+        assert flight_plan.is_approximated
+
+        for waypoint in flight_plan.refuel_waypoints:
+            nearest_towers = ""
+            flight_plan = FlightPlan()

@@ -1,8 +1,9 @@
 {
+  "id": "",
    "bot":{
       "type":"MarkI",
-      "flight_time":1200,
-      "speed":1
+      "flight_time":5000,
+      "speed":10
    },
    "starting_position":[0, 0, 0],
    "waypoints":[
@@ -24,6 +25,11 @@
             "from":[5000, 5000, 5000],
             "to":[10000, 10000, 10000]
          }
+      },
+      {
+         "type":"action",
+         "action":"payload",
+         "duration":2000
       },
       {
          "type":"leg",

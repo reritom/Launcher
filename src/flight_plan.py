@@ -45,6 +45,23 @@ class FlightPlan:
             return True
 
     @property
+    def is_approximated(self) -> bool:
+        for waypoint in self.waypoints:
+            if not waypoint.is_approximated:
+                return False
+
+        return True
+
+    @property
+    def refuel_waypoints(self):
+        return [
+            waypoint
+            for waypoint in self.waypoints
+            if waypoint.is_action
+            and waypoint.action == waypoint.BEING_RECHARGED
+        ]
+
+    @property
     def total_distance(self) -> Optional[int]:
         if not self.is_definite:
             return None

@@ -1,3 +1,5 @@
+import uuid
+
 class Waypoint:
     """
     A waypoint is a dataclass which either represents a leg of a journey, or an action being performed between two legs.
@@ -13,17 +15,22 @@ class Waypoint:
             cartesian_positions=waypoint_dict.get('cartesian_positions'),
             type=waypoint_dict['type'],
             action=waypoint_dict.get('action'),
-            duration=waypoint_dict.get('duration')
+            duration=waypoint_dict.get('duration'),
+            id=waypoint_dict.get('id')
         )
 
         return instance
 
-    def __init__(self, type, action=None, duration=None, cartesian_positions=None):
+    def __init__(self, type, action=None, duration=None, cartesian_positions=None, id=None):
         self.type = type
+        self.id = str(uuid.uuid4()) if not id else id
 
         self.action = None
         self.duration = None
         self.cartesian_positions = None
+
+        self.start_time = None
+        self.end_time = None
 
         if self.type == 'leg':
             assert cartesian_positions is not None
@@ -35,6 +42,10 @@ class Waypoint:
 
             assert duration is not None
             self.duration = duration
+
+    @property
+    def is_approximated(self):
+        return self.start_time and self.end_time
 
     @property
     def is_definite(self):
@@ -75,12 +86,16 @@ class Waypoint:
             return {
                 'type': self.type,
                 'action': self.action,
-                'duration': self.duration
+                'duration': self.duration,
+                'start_time': self.start_time.strftime("%Y-%m-%d %H:%M:%S"),
+                'end_time': self.end_time.strftime("%Y-%m-%d %H:%M:%S")
             }
         elif self.is_leg:
             return {
                 'cartesian_positions': self.cartesian_positions,
                 'type': self.type,
+                'start_time': self.start_time.strftime("%Y-%m-%d %H:%M:%S"),
+                'end_time': self.end_time.strftime("%Y-%m-%d %H:%M:%S")
             }
         else:
             return {}
