@@ -31,3 +31,14 @@ class Tower:
 
     def register_flight_plan(self, flight_plan: FlightPlan, when: datetime.datetime):
         pass
+
+    def __repr__(self):
+        return "Tower {}".format(self.position)
+
+    @property
+    def refueler_types(self):
+        return [
+            inventory
+            for inventory in self.inventory
+            if inventory['type'] == 'Refueler'
+        ]

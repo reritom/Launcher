@@ -1,11 +1,12 @@
 {
   "id": "TowerOne",
-  "cartesian_position": [30000, 30000, 0],
+  "cartesian_position": [15000, 15000, 0],
   "parallel_launchers": 1,
   "parallel_landers": 1,
   "launch_time": 60,
   "inventory": [
     {
+      "model": "MarkII",
       "type": "Refueler",
       "speed": 7,
       "flight_time": 1200,

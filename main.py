@@ -12,7 +12,7 @@ towers = [
     Tower.from_file("./examples/towers/tower_1.json")
 ]
 
-scheduler = Scheduler(towers=towers, refuel_duration=60, remaining_flight_time_at_refuel=300)
+scheduler = Scheduler(towers=towers, refuel_duration=60, remaining_flight_time_at_refuel=300, refuel_anticipation_buffer=60)
 when = datetime.datetime.now() + datetime.timedelta(days=1)
 schedule = scheduler.determine_schedule_from_launch_time(flight_plan, when)
 

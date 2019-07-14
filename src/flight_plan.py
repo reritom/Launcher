@@ -1,6 +1,8 @@
 import json
 from typing import Optional
 
+from .leg_waypoint import LegWaypoint
+from .action_waypoint import ActionWaypoint
 from .waypoint import Waypoint
 from .bot import Bot
 from .tools import distance_between
@@ -18,7 +20,12 @@ class FlightPlan:
     @classmethod
     def from_dict(cls, flight_plan_dict: dict) -> 'FlightPlan':
         return cls(
-            waypoints=[Waypoint.from_dict(waypoint_dict) for waypoint_dict in flight_plan_dict.get('waypoints', [])],
+            waypoints=[
+                ActionWaypoint.from_dict(waypoint_dict)
+                if waypoint_dict['type'] == 'action'
+                else LegWaypoint.from_dict(waypoint_dict)
+                for waypoint_dict in flight_plan_dict.get('waypoints', [])
+                ],
             bot=Bot.from_dict(flight_plan_dict['bot']),
             starting_position=flight_plan_dict['starting_position']
         )
