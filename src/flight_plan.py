@@ -8,8 +8,6 @@ from .bot import Bot
 from .tools import distance_between
 
 class FlightPlan:
-    UNDEFINED = "UNDEFINED"
-
     @classmethod
     def from_file(cls, filepath: str) -> 'FlightPlan':
         with open(filepath, 'r') as f:
@@ -36,15 +34,27 @@ class FlightPlan:
         self.starting_position = starting_position if starting_position else [0, 0, 0]
 
     def add_waypoint(self, waypoint: Waypoint):
+        # TODO add some validations to do with positions
         self.waypoints.append(waypoint)
 
     def set_bot(self, bot: Bot):
+        """
+        Flight plans don't have a bot as such, but they do require a bot type which is determined by payload type
+        and specification. The bot here is used when calculating schedules and timings
+        """
         self.bot = bot
 
     def set_starting_position(self, starting_position: list):
+        """
+        The location of the tower the flight plan starts from
+        """
         self.starting_position = starting_position
 
     def is_definite(self) -> bool:
+        """
+        If all the waypoints are definite, then the flight plan is definite, meaning timings can be calculated
+        with relative ease.
+        """
         for waypoint in self.waypoints:
             if waypoint.duration == waypoint.INDEFINITE:
                 return False
@@ -53,6 +63,10 @@ class FlightPlan:
 
     @property
     def is_approximated(self) -> bool:
+        """
+        A flight plan is approximated if all the waypoints are approximated, meaning they have a start time
+        and an end time relative to a given launch time.
+        """
         for waypoint in self.waypoints:
             if not waypoint.is_approximated:
                 return False
@@ -61,6 +75,9 @@ class FlightPlan:
 
     @property
     def refuel_waypoints(self):
+        """
+        Return a list of waypoints where the action is being recharged
+        """
         return [
             waypoint
             for waypoint in self.waypoints
@@ -70,6 +87,9 @@ class FlightPlan:
 
     @property
     def total_distance(self) -> Optional[int]:
+        """
+        If the flight plan is definitive, return the total distance
+        """
         if not self.is_definite:
             return None
 
@@ -83,6 +103,9 @@ class FlightPlan:
 
     @property
     def flight_time(self) -> Optional[int]:
+        """
+        Return the approximate flight time by considering the distance and the bot type.
+        """
         flight_time = 0
 
         for waypoint in self.waypoints:
