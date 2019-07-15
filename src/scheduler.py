@@ -45,12 +45,15 @@ class Scheduler:
         If the schedules requires the first launch to be in the past, the schedule is marked as unapplicable.
         """
         assert waypoint_id in [waypoint.id for waypoint in flight_time.waypoints]
+        self.validate_flight_plan(flight_plan)
 
     def determine_schedule_from_launch_time(self, flight_plan: FlightPlan, launch_time: datetime.datetime) -> Schedule:
         """
         For a given flight plan, determine when all the supporting bots need to be deployed and their
         respective flight plans
         """
+        self.validate_flight_plan(flight_plan)
+
         # Add an refueling waypoints to the flight plan
         self.recalculate_flight_plan(flight_plan)
 
@@ -69,6 +72,25 @@ class Scheduler:
 
         schedule = Schedule()
         return schedule
+
+    def validate_flight_plan(self, flight_plan: FlightPlan):
+        """
+        Perform some basic assertions on the flight plan to ensure it will work
+        """
+        # The associated bot model needs to exist in our context
+        assert flight_plan.bot_model in [bot.model for bot in self.bots]
+
+        # Make sure the flight plan starts at a tower
+        assert flight_plan.starting_position == flight_plan.waypoints[0].from_pos
+        assert flight_plan.waypoints[0].from_pos in [tower.position for tower in self.towers]
+
+        # The end of the final leg needs to be a tower location
+        assert flight_plan.waypoints[-1].is_leg
+        assert flight_plan.waypoints[-1].to_pos in [tower.position for tower in self.towers]
+
+        # Assert each of the legs line up
+        # TODO
+        pass
 
     def approximate_timings(self, flight_plan: FlightPlan, launch_time: datetime.datetime) -> None:
         """
