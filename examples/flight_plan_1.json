@@ -1,10 +1,6 @@
 {
   "id": "",
-   "bot":{
-      "type":"MarkI",
-      "flight_time":5000,
-      "speed":10
-   },
+   "bot_model": "GypsyMarkI",
    "starting_position":[0, 0, 0],
    "waypoints":[
       {

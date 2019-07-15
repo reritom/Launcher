@@ -2,6 +2,7 @@ from src.flight_plan import FlightPlan
 from src.scheduler import Scheduler
 from src.simulator import Simulator
 from src.tower import Tower
+from src.bot import Bot
 
 import datetime
 
@@ -12,7 +13,9 @@ towers = [
     Tower.from_file("./examples/towers/tower_1.json")
 ]
 
-scheduler = Scheduler(towers=towers, refuel_duration=60, remaining_flight_time_at_refuel=300, refuel_anticipation_buffer=60)
+bots = Bot.from_catalogue_file("./examples/bots_1.json")
+
+scheduler = Scheduler(towers=towers, bots=bots, refuel_duration=60, remaining_flight_time_at_refuel=300, refuel_anticipation_buffer=60)
 when = datetime.datetime.now() + datetime.timedelta(days=1)
 schedule = scheduler.determine_schedule_from_launch_time(flight_plan, when)
 

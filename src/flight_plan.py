@@ -24,25 +24,26 @@ class FlightPlan:
                 else LegWaypoint.from_dict(waypoint_dict)
                 for waypoint_dict in flight_plan_dict.get('waypoints', [])
                 ],
-            bot=Bot.from_dict(flight_plan_dict['bot']),
+            bot_model=flight_plan_dict['bot_model'],
             starting_position=flight_plan_dict['starting_position']
         )
 
-    def __init__(self, waypoints: list = None, bot: Bot = None, starting_position: list = None):
+    def __init__(self, waypoints: list = None, bot_model: str = None, starting_position: list = None):
         self.waypoints = waypoints if waypoints else []
-        self.bot = bot if bot else None
+        self.bot_model = bot_model if bot_model else None
         self.starting_position = starting_position if starting_position else [0, 0, 0]
 
     def add_waypoint(self, waypoint: Waypoint):
         # TODO add some validations to do with positions
+        # TODO, undo estimations
         self.waypoints.append(waypoint)
 
-    def set_bot(self, bot: Bot):
+    def set_bot(self, bot_model: str):
         """
         Flight plans don't have a bot as such, but they do require a bot type which is determined by payload type
         and specification. The bot here is used when calculating schedules and timings
         """
-        self.bot = bot
+        self.bot_model = bot_model
 
     def set_starting_position(self, starting_position: list):
         """
@@ -101,6 +102,7 @@ class FlightPlan:
 
         return total_distance
 
+    '''
     @property
     def flight_time(self) -> Optional[int]:
         """
@@ -119,6 +121,7 @@ class FlightPlan:
             flight_time = flight_time + time
 
         return flight_time
+    '''
 
 
     def to_dict(self) -> dict:
@@ -128,6 +131,6 @@ class FlightPlan:
                 for waypoint
                 in self.waypoints
             ],
-            'bot': self.bot.to_dict(),
+            'bot_model': self.bot_model,
             'starting_position': self.starting_position
         }

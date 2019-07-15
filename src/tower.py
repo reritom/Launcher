@@ -36,9 +36,9 @@ class Tower:
         return "Tower {}".format(self.position)
 
     @property
-    def refueler_types(self):
+    def inventory_models(self):
         return [
-            inventory
-            for inventory in self.inventory
-            if inventory['type'] == 'Refueler'
+            inventory['model']
+            for inventory
+            in self.inventory
         ]

@@ -6,10 +6,7 @@
   "launch_time": 60,
   "inventory": [
     {
-      "model": "MarkII",
-      "type": "Refueler",
-      "speed": 7,
-      "flight_time": 1200,
+      "model": "RefuelerMarkII",
       "quantity": 5
     }
   ]

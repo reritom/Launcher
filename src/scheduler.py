@@ -1,5 +1,5 @@
 import math as maths
-from typing import List
+from typing import List, Optional
 import json
 
 from .schedule import Schedule
@@ -8,14 +8,25 @@ from .tower import Tower
 from .waypoint import Waypoint
 from .leg_waypoint import LegWaypoint
 from .action_waypoint import ActionWaypoint
+from .bot import Bot
 
 from .tools import distance_between
 import datetime
 
 class Scheduler:
-    def __init__(self, towers: List[Tower], refuel_duration: int, remaining_flight_time_at_refuel: int, refuel_anticipation_buffer: str):
+    def __init__(self, towers: List[Tower], bots: List[Bot], refuel_duration: int, remaining_flight_time_at_refuel: int, refuel_anticipation_buffer: str):
         # Tower objects with their inventories and availabilities
         self.towers = towers
+
+        # List of defined bots
+        self.bots = bots
+
+        # All the bots in each tower inventory needs to be defined in this bots list
+        bot_models = [bot.model for bot in self.bots]
+
+        for self.tower in towers:
+            for inventory in self.tower.inventory:
+                assert inventory['model'] in bot_models, f"{inventory['model']} not defined in bot models, {bot_models}"
 
         # The seconds that a refueler should arrive at the refuel location before the refueling
         self.refuel_anticipation_buffer = refuel_anticipation_buffer
@@ -70,7 +81,8 @@ class Scheduler:
             if waypoint.is_action:
                 waypoint.end_time = waypoint.start_time + datetime.timedelta(seconds=waypoint.duration)
             elif waypoint.is_leg:
-                waypoint.end_time = waypoint.start_time + datetime.timedelta(seconds=distance_between(waypoint.from_pos, waypoint.to_pos)/flight_plan.bot.speed)
+                bot = self.get_bot_by_model(flight_plan.bot_model)
+                waypoint.end_time = waypoint.start_time + datetime.timedelta(seconds=distance_between(waypoint.from_pos, waypoint.to_pos)/bot.speed)
 
     def recalculate_flight_plan(self, flight_plan: FlightPlan) -> None:
         """
@@ -91,7 +103,8 @@ class Scheduler:
                         # Else we will look at the duration of the action, and split it if necessary
                         time_since_last_recharge += waypoint.duration
 
-                        threshold = flight_plan.bot.flight_time - self.remaining_flight_time_at_refuel - self.refuel_duration
+                        bot = self.get_bot_by_model(flight_plan.bot_model)
+                        threshold = bot.flight_time - self.remaining_flight_time_at_refuel - self.refuel_duration
                         if time_since_last_recharge > threshold:
                             overshoot = time_since_last_recharge - threshold
                             waypoint.duration = waypoint.duration - overshoot
@@ -118,10 +131,11 @@ class Scheduler:
                         continue
 
                     elif waypoint.is_leg:
-                        leg_time = int(distance_between(waypoint.from_pos, waypoint.to_pos))
+                        bot = self.get_bot_by_model(flight_plan.bot_model)
+                        leg_time = int(distance_between(waypoint.from_pos, waypoint.to_pos)/bot.speed)
                         time_since_last_recharge += leg_time
 
-                        threshold = flight_plan.bot.flight_time - self.remaining_flight_time_at_refuel - self.refuel_duration
+                        threshold = bot.flight_time - self.remaining_flight_time_at_refuel - self.refuel_duration
                         print(f"Leg, time since last {time_since_last_recharge}, threshold {threshold}")
                         if time_since_last_recharge > threshold:
                             overshoot = time_since_last_recharge - threshold
@@ -199,6 +213,7 @@ class Scheduler:
 
             # For each tower we will create a dummy flight plan, and then take whichever is available
             for tower in nearest_towers:
+                # These are the base waypoints, we will copy these for each type of inventory
                 waypoints = [
                     LegWaypoint(
                         cartesian_positions={
@@ -224,13 +239,15 @@ class Scheduler:
                 ]
 
                 # Each tower can multiple types of refueler models, so we will check each
-                for refueler_bot_type in tower.refueler_types:
+                for bot_model in tower.inventory_models:
+                    bot = self.get_bot_by_model(bot_model)
+
                     flight_plan = FlightPlan(
                         waypoints=[
                             waypoint.copy()
                             for waypoint in waypoints
                             ],
-                        bot=refueler_bot_type,
+                        bot_model=bot_model,
                         starting_position=tower.position
                     )
                     potential_flight_plans_per_waypoint_id.setdefault(waypoint.id, [])
@@ -257,3 +274,8 @@ class Scheduler:
             distance[1]
             for distance in distances
         ]
+
+    def get_bot_by_model(self, model: str) -> Optional[Bot]:
+        for bot in self.bots:
+            if bot.model == model:
+                return bot

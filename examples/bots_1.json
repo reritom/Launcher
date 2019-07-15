@@ -1,0 +1,20 @@
+[
+  {
+    "model": "RefuelerMarkI",
+    "type": "Refueler",
+    "speed": 5,
+    "flight_time": 1200
+  },
+  {
+    "model": "RefuelerMarkII",
+    "type": "Refueler",
+    "speed": 7,
+    "flight_time": 1200
+  },
+  {
+     "model":"GypsyMarkI",
+     "type": "Operator",
+     "flight_time":5000,
+     "speed":5
+  }
+]
