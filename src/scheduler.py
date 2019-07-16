@@ -81,15 +81,15 @@ class Scheduler:
         Perform some basic assertions on the flight plan to ensure it will work
         """
         # The associated bot model needs to exist in our context
-        assert flight_plan.bot_model in [bot.model for bot in self.bots]
+        assert flight_plan.bot_model in [bot.model for bot in self.bots], "Unknown bot model"
 
         # Make sure the flight plan starts at a tower
-        assert flight_plan.starting_position == flight_plan.waypoints[0].from_pos
-        assert flight_plan.waypoints[0].from_pos in [tower.position for tower in self.towers]
+        assert flight_plan.starting_position == flight_plan.waypoints[0].from_pos, "Starting point doesnt match first waypoint"
+        assert flight_plan.waypoints[0].from_pos in [tower.position for tower in self.towers], "Starting waypoint isn't located on tower"
 
         # The end of the final leg needs to be a tower location
-        assert flight_plan.waypoints[-1].is_leg
-        assert flight_plan.waypoints[-1].to_pos in [tower.position for tower in self.towers]
+        assert flight_plan.waypoints[-1].is_leg, "Last waypoint isnt a leg"
+        assert flight_plan.waypoints[-1].to_pos in [tower.position for tower in self.towers], "Last waypoint isn't targetting a tower"
 
         # Assert each of the legs line up
         # TODO
