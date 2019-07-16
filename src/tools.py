@@ -6,3 +6,9 @@ def distance_between(position_a, position_b):
         + abs(position_a[1] - position_b[1])**2
         + abs(position_a[2] - position_b[2])**2
     )
+
+def find_middle_position_by_ratio(position_a, position_b, ratio):
+    return [
+        position_a[i] + (position_b[i] - position_a[i]) * ratio
+        for i in [0, 1, 2]
+    ]

@@ -16,13 +16,14 @@ class LegWaypoint(Waypoint):
     def to_dict(self) -> dict:
         dict_self = {
             'cartesian_positions': self.cartesian_positions,
-            'type': self.type
+            'type': self.type,
+            'id': self.id
         }
 
         if self.start_time and self.end_time:
             dict_self['start_time'] = self.start_time.strftime("%Y-%m-%d %H:%M:%S")
             dict_self['end_time'] = self.end_time.strftime("%Y-%m-%d %H:%M:%S")
-            
+
         return dict_self
 
     @classmethod
@@ -34,3 +35,10 @@ class LegWaypoint(Waypoint):
 
     def __repr__(self):
         return f"Waypoint {self.type} from {self.from_pos} to {self.to_pos}"
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, type(self))
+            and other.is_leg
+            and other.cartesian_positions == self.cartesian_positions
+        )

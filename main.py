@@ -4,8 +4,8 @@ from src.simulator import Simulator
 from src.tower import Tower
 from src.bot import Bot
 
-import datetime
-
+import datetime, sys
+sys.setrecursionlimit(50)
 
 flight_plan = FlightPlan.from_file("./examples/flight_plan_1.json")
 towers = [

@@ -32,6 +32,10 @@ class Bot:
         self.bot_type = bot_type
         self.model = model
 
+    @property
+    def is_refueler(self):
+        return self.bot_type.lower() == "refueler"
+
     def to_dict(self) -> dict:
         return {
             'flight_time': self.flight_time,

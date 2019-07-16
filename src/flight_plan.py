@@ -102,28 +102,6 @@ class FlightPlan:
 
         return total_distance
 
-    '''
-    @property
-    def flight_time(self) -> Optional[int]:
-        """
-        Return the approximate flight time by considering the distance and the bot type.
-        """
-        flight_time = 0
-
-        for waypoint in self.waypoints:
-            if waypoint.is_leg:
-                distance = distance_between(waypoint.from_pos, waypoint.to_pos)
-                time = distance / self.bot.speed
-
-            elif waypoint.is_action:
-                time = time + waypoint.duration
-
-            flight_time = flight_time + time
-
-        return flight_time
-    '''
-
-
     def to_dict(self) -> dict:
         return {
             'waypoints': [
@@ -134,3 +112,24 @@ class FlightPlan:
             'bot_model': self.bot_model,
             'starting_position': self.starting_position
         }
+
+    def __eq__(self, other):
+        if not isinstance(other, type(self)):
+            return False
+
+        if len(self.waypoints) != len(other.waypoints):
+            print(f"Lengths dont match {len(self.waypoints)} {len(other.waypoints)}")
+            return False
+
+        print(f"Lengths match {len(self.waypoints)} {len(other.waypoints)}")
+
+        for index, waypoint in enumerate(self.waypoints):
+            if not waypoint == other.waypoints[index]:
+                return False
+
+        print("Enumerations match")
+
+        return (
+            self.bot_model == other.bot_model
+            and self.starting_position == other.starting_position
+        )

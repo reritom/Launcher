@@ -1,5 +1,5 @@
 import math as maths
-from typing import List, Optional
+from typing import List, Optional, Dict
 import json
 
 from .schedule import Schedule
@@ -55,7 +55,9 @@ class Scheduler:
         self.validate_flight_plan(flight_plan)
 
         # Add an refueling waypoints to the flight plan
+        print(f"Original flight plan has {len(flight_plan.waypoints)} waypoints")
         self.recalculate_flight_plan(flight_plan)
+        print(f"After recalculate, there are {len(flight_plan.waypoints)}")
 
         # Flight plans don't consider absolute timings, so here will will add some approximates
         self.approximate_timings(flight_plan, launch_time)
@@ -67,8 +69,9 @@ class Scheduler:
             f.write(json.dumps(flight_plan.to_dict()))
 
         # For each refueling waypoint in the flight plan, create a resupply flight plan
-        resupply_flight_plans = self.create_refuel_flight_plans(flight_plan)
+        refuel_flight_plans = self.create_refuel_flight_plans(flight_plan)
         print(f"Updated flight plan has {len(flight_plan.waypoints)} waypoints")
+        print(refuel_flight_plans)
 
         schedule = Schedule()
         return schedule
@@ -106,6 +109,45 @@ class Scheduler:
                 bot = self.get_bot_by_model(flight_plan.bot_model)
                 waypoint.end_time = waypoint.start_time + datetime.timedelta(seconds=distance_between(waypoint.from_pos, waypoint.to_pos)/bot.speed)
 
+    def approximate_timings_based_on_waypoint_eta(self, flight_plan: FlightPlan, waypoint_eta: datetime.datetime, waypoint_id: str):
+        """
+        For a given flight plan and launch time, approximate the start and end time of each waypoint
+        """
+        # Find the index of the waypoint we are interested in
+        index = [index for index, waypoint in enumerate(flight_plan.waypoints) if waypoint.id == waypoint_id].pop(0)
+        initial_index = index
+
+        bot = self.get_bot_by_model(flight_plan.bot_model)
+
+        # We will work backwards from the index
+        while index >= 0:
+            reference_waypoint = flight_plan.waypoints[index]
+
+            if index == initial_index:
+                # Make the initial approximations
+                reference_waypoint.start_time = waypoint_eta
+                reference_waypoint.end_time = (
+                    waypoint_eta + datetime.timedelta(seconds=reference_waypoint.duration)
+                    if reference_waypoint.is_action
+                    else waypoint_eta + datetime.timedelta(seconds=distance_between(reference_waypoint.from_pos, reference_waypoint.to_pos)/bot.speed)
+                )
+            else:
+                # Work backwards from the timing we know
+                reference_waypoint.start_time = (
+                    flight_plan.waypoints[index + 1].start_time - datetime.timedelta(seconds=reference_waypoint.duration)
+                    if reference_waypoint.is_action
+                    else flight_plan.waypoints[index + 1].start_time - datetime.timedelta(seconds=distance_between(reference_waypoint.from_pos, reference_waypoint.to_pos)/bot.speed)
+                )
+                reference_waypoint.end_time = flight_plan.waypoints[index + 1].start_time
+
+            index = index - 1
+
+        # And then work forward from the beginning like usual
+        return self.approximate_timings(
+            flight_plan=flight_plan,
+            launch_time=flight_plan.waypoints[0].start_time
+        )
+
     def recalculate_flight_plan(self, flight_plan: FlightPlan) -> None:
         """
         For a given flight plan, add any necessary refueling waypoints
@@ -118,7 +160,7 @@ class Scheduler:
                 for index, waypoint in enumerate(flight_plan.waypoints):
                     if waypoint.is_action:
                         if waypoint.is_being_recharged:
-                            print("Waypoint is being recharged")
+                            #print("Waypoint is being recharged")
                             time_since_last_recharge = 0
                             continue
 
@@ -128,28 +170,39 @@ class Scheduler:
                         bot = self.get_bot_by_model(flight_plan.bot_model)
                         threshold = bot.flight_time - self.remaining_flight_time_at_refuel - self.refuel_duration
                         if time_since_last_recharge > threshold:
-                            overshoot = time_since_last_recharge - threshold
-                            waypoint.duration = waypoint.duration - overshoot
+                            # If the waypoint is giving performing a recharge, then we can't interrupt it
+                            if waypoint.is_giving_recharge:
+                                # Create the refueling waypoint
+                                new_waypoint = ActionWaypoint(
+                                    action='being_recharged',
+                                    duration=self.refuel_duration
+                                )
 
-                            # Create the refueling waypoint
-                            new_waypoint = ActionWaypoint(
-                                action='being_recharged',
-                                duration=self.refuel_duration
-                            )
+                                # So we recharge it before the action
+                                flight_plan.waypoints.insert(index - 1, new_waypoint)
+                            else:
+                                overshoot = time_since_last_recharge - threshold
+                                waypoint.duration = waypoint.duration - overshoot
 
-                            flight_plan.waypoints.insert(index + 1, new_waypoint)
+                                # Create the refueling waypoint
+                                new_waypoint = ActionWaypoint(
+                                    action='being_recharged',
+                                    duration=self.refuel_duration
+                                )
 
-                            # Create the action waypoint with the remaining overshoot
-                            new_waypoint = ActionWaypoint(
-                                action=waypoint.action,
-                                duration=overshoot
-                            )
+                                flight_plan.waypoints.insert(index + 1, new_waypoint)
 
-                            flight_plan.waypoints.insert(index + 2, new_waypoint)
-                            print("Breaking from action overshoot")
+                                # Create the action waypoint with the remaining overshoot
+                                new_waypoint = ActionWaypoint(
+                                    action=waypoint.action,
+                                    duration=overshoot
+                                )
+
+                                flight_plan.waypoints.insert(index + 2, new_waypoint)
+                            #print("Breaking from action overshoot")
                             break
 
-                        print("Continuing from action")
+                        #print("Continuing from action")
                         continue
 
                     elif waypoint.is_leg:
@@ -158,7 +211,7 @@ class Scheduler:
                         time_since_last_recharge += leg_time
 
                         threshold = bot.flight_time - self.remaining_flight_time_at_refuel - self.refuel_duration
-                        print(f"Leg, time since last {time_since_last_recharge}, threshold {threshold}")
+                        #print(f"Leg, time since last {time_since_last_recharge}, threshold {threshold}")
                         if time_since_last_recharge > threshold:
                             overshoot = time_since_last_recharge - threshold
 
@@ -189,10 +242,10 @@ class Scheduler:
 
                             # Turn the leg into just the first leg
                             waypoint.cartesian_positions['to'] = split_position
-                            print("Breaking from leg overshoot")
+                            #print("Breaking from leg overshoot")
                             break
 
-                        print("Continuing from leg")
+                        #print("Continuing from leg")
                         continue
 
                 else:
@@ -220,18 +273,18 @@ class Scheduler:
 
                     i = i + 1
 
-    def create_refuel_flight_plans(self, flight_plan: FlightPlan) -> List[FlightPlan]:
+    def create_refuel_flight_plans(self, flight_plan: FlightPlan) -> Dict[str, FlightPlan]:
         """
         For a given flight plan, determine the flight plans for any refueling bots
         """
         assert flight_plan.is_approximated
 
         potential_flight_plans_per_waypoint_id = {}
-        print(f"There are {len(flight_plan.refuel_waypoints)}")
+        print(f"There are {len(flight_plan.refuel_waypoints)} refuel waypoints")
 
-        for waypoint in flight_plan.refuel_waypoints:
-            nearest_towers = self.get_nearest_towers_to_waypoint(waypoint)
-            print(f"Nearest towers to {waypoint} are {nearest_towers}")
+        for refuel_waypoint in flight_plan.refuel_waypoints:
+            nearest_towers = self.get_nearest_towers_to_waypoint(refuel_waypoint)
+            print(f"Nearest towers to {refuel_waypoint} are {nearest_towers}")
 
             # For each tower we will create a dummy flight plan, and then take whichever is available
             for tower in nearest_towers:
@@ -240,7 +293,7 @@ class Scheduler:
                     LegWaypoint(
                         cartesian_positions={
                             'from': tower.position,
-                            'to': waypoint.position
+                            'to': refuel_waypoint.position
                         }
                     ),
                     ActionWaypoint(
@@ -254,7 +307,7 @@ class Scheduler:
                     ),
                     LegWaypoint(
                         cartesian_positions={
-                            'from': waypoint.position,
+                            'from': refuel_waypoint.position,
                             'to': tower.position
                         }
                     )
@@ -263,20 +316,64 @@ class Scheduler:
                 # Each tower can multiple types of refueler models, so we will check each
                 for bot_model in tower.inventory_models:
                     bot = self.get_bot_by_model(bot_model)
+                    if bot.is_refueler:
+                        flight_plan = FlightPlan(
+                            waypoints=[
+                                waypoint.copy()
+                                for waypoint in waypoints
+                                ],
+                            bot_model=bot_model,
+                            starting_position=tower.position
+                        )
+                        print(f"Potential flight plan for {refuel_waypoint}")
+                        print(flight_plan.to_dict())
+                        potential_flight_plans_per_waypoint_id.setdefault(refuel_waypoint.id, [])
+                        potential_flight_plans_per_waypoint_id[refuel_waypoint.id].append(flight_plan)
 
-                    flight_plan = FlightPlan(
-                        waypoints=[
-                            waypoint.copy()
-                            for waypoint in waypoints
-                            ],
-                        bot_model=bot_model,
-                        starting_position=tower.position
-                    )
-                    potential_flight_plans_per_waypoint_id.setdefault(waypoint.id, [])
-                    potential_flight_plans_per_waypoint_id[waypoint.id].append(flight_plan)
+        calculated_flight_plans_per_waypoint_id = {}
 
-        for id in potential_flight_plans_per_waypoint_id:
-            print(potential_flight_plans_per_waypoint_id[id])
+        # For each waypoint, determine the best of the available flight plans
+        for waypoint_id in potential_flight_plans_per_waypoint_id:
+            calculated_flight_plans_per_waypoint_id.setdefault(waypoint_id, [])
+
+            for potential_flight_plan in potential_flight_plans_per_waypoint_id[waypoint_id]:
+                # If we recalculate the flight plan and it ends with the same number of waypoints, then it is absolute
+                waypoint_count_before_recalculation = len(potential_flight_plan.waypoints)
+
+                # General flight plan preperation
+                self.recalculate_flight_plan(potential_flight_plan)
+                self.add_positions_to_action_waypoints(potential_flight_plan)
+
+                self.approximate_timings_based_on_waypoint_eta(
+                    flight_plan=potential_flight_plan,
+                    waypoint_eta=refuel_waypoint.start_time,
+                    waypoint_id="critical"
+                )
+                print("Recalculated potential flight plan is:")
+                print(potential_flight_plan.to_dict())
+
+                if waypoint_count_before_recalculation != len(potential_flight_plan.waypoints):
+                    print(f"Flight plan has {waypoint_count_before_recalculation} waypoints before update, then {len(potential_flight_plan.waypoints)}")
+                    # This needs to be monitored to limit recursion
+                    #refuel_flight_plans = self.create_refuel_flight_plans(potential_flight_plan)
+                    calculated_flight_plans_per_waypoint_id[waypoint_id].append({
+                        'related_waypoint_id': waypoint_id,
+                        'flight_plan': potential_flight_plan,
+                        'related_sub_flight_plans': [],
+                        'available': False
+                    })
+                else:
+                    calculated_flight_plans_per_waypoint_id[waypoint_id].append({
+                        'related_waypoint_id': waypoint_id,
+                        'flight_plan': potential_flight_plan,
+                        'related_sub_flight_plans': [],
+                        'available': True
+                    })
+
+                print(f"{waypoint_id} -> {potential_flight_plan}")
+                print(potential_flight_plan.to_dict())
+
+        return calculated_flight_plans_per_waypoint_id
 
     def get_nearest_towers_to_waypoint(self, waypoint: Waypoint) -> List[Tower]:
         """
@@ -298,6 +395,9 @@ class Scheduler:
         ]
 
     def get_bot_by_model(self, model: str) -> Optional[Bot]:
+        """
+        Get the bot object from the catalogue for a given model
+        """
         for bot in self.bots:
             if bot.model == model:
                 return bot
