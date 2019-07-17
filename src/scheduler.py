@@ -182,23 +182,36 @@ class Scheduler:
                                 flight_plan.waypoints.insert(index - 1, new_waypoint)
                             else:
                                 overshoot = time_since_last_recharge - threshold
-                                waypoint.duration = waypoint.duration - overshoot
 
-                                # Create the refueling waypoint
-                                new_waypoint = ActionWaypoint(
-                                    action='being_recharged',
-                                    duration=self.refuel_duration
-                                )
+                                if waypoint.duration == overshoot:
+                                    # We don't split the existing waypoint, we just insert the refuel first
 
-                                flight_plan.waypoints.insert(index + 1, new_waypoint)
+                                    # Create the refueling waypoint
+                                    new_waypoint = ActionWaypoint(
+                                        action='being_recharged',
+                                        duration=self.refuel_duration
+                                    )
 
-                                # Create the action waypoint with the remaining overshoot
-                                new_waypoint = ActionWaypoint(
-                                    action=waypoint.action,
-                                    duration=overshoot
-                                )
+                                    flight_plan.waypoints.insert(index, new_waypoint)
+                                else:
+                                    # We split the existing waypoint, add a refuel point, and then create a new waypoint for the remaining action
+                                    waypoint.duration = waypoint.duration - overshoot
 
-                                flight_plan.waypoints.insert(index + 2, new_waypoint)
+                                    # Create the refueling waypoint
+                                    new_waypoint = ActionWaypoint(
+                                        action='being_recharged',
+                                        duration=self.refuel_duration
+                                    )
+
+                                    flight_plan.waypoints.insert(index + 1, new_waypoint)
+
+                                    # Create the action waypoint with the remaining overshoot
+                                    new_waypoint = ActionWaypoint(
+                                        action=waypoint.action,
+                                        duration=overshoot
+                                    )
+
+                                    flight_plan.waypoints.insert(index + 2, new_waypoint)
                             #print("Breaking from action overshoot")
                             break
 
@@ -352,7 +365,7 @@ class Scheduler:
                 print("Recalculated potential flight plan is:")
                 print(potential_flight_plan.to_dict())
 
-                if waypoint_count_before_recalculation != len(potential_flight_plan.waypoints):
+                if abs(waypoint_count_before_recalculation - len(potential_flight_plan.waypoints)) > 1:
                     print(f"Flight plan has {waypoint_count_before_recalculation} waypoints before update, then {len(potential_flight_plan.waypoints)}")
                     # This needs to be monitored to limit recursion
                     #refuel_flight_plans = self.create_refuel_flight_plans(potential_flight_plan)

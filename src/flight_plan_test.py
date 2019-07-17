@@ -67,6 +67,9 @@ class TestFlightPlan(unittest.TestCase):
         self.assertEqual(dict_representation, expected_representation)
 
     def test_flight_plan_equals_1(self):
+        # This test compares two flight plans with the same construction.
+        # This is tested because there are internal values which need to be ignored, like uuids
+
         waypoints_1 = [
             LegWaypoint(cartesian_positions={
                 'from': [0,0,0],
@@ -111,7 +114,9 @@ class TestFlightPlan(unittest.TestCase):
 
         self.assertEqual(flight_plan_1, flight_plan_2)
 
-    def test_flight_plan_equals_2(self):
+    def test_flight_plan_equals_ko_invalid_type(self):
+        # This test makes sure that comparing a flight plan to another type returns false
+        
         waypoints = [
             LegWaypoint(cartesian_positions={
                 'from': [0,0,0],
