@@ -29,6 +29,9 @@ class ActionWaypoint(Waypoint):
             dict_self['start_time'] = self.start_time.strftime("%Y-%m-%d %H:%M:%S")
             dict_self['end_time'] = self.end_time.strftime("%Y-%m-%d %H:%M:%S")
 
+        if self.position:
+            dict_self['position'] = self.position
+
         return dict_self
 
     @classmethod

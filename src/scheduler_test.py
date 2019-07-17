@@ -668,3 +668,63 @@ class TestScheduler(unittest.TestCase):
             f.write(json.dumps(flight_plan.to_dict()))
 
         self.assertEqual(flight_plan, expected_flight_plan)
+
+    def test_get_nearest_towers_to_waypoint(self):
+        bots = [
+            Bot(
+                flight_time=500,
+                speed=1,
+                bot_type="Refueler",
+                model="TestI"
+            ),
+            Bot(
+                flight_time=500,
+                speed=1,
+                bot_type="Carrier",
+                model="CarrierI"
+            )
+        ]
+
+        waypoint = ActionWaypoint(
+            action="being_recharged",
+            duration=100
+        )
+
+        waypoint.position = [50,50,50]
+
+
+        towers = [
+            Tower(
+                inventory=[{'model': "TestI", 'quantity': 5}],
+                position=[0,0,0],
+                parallel_launchers=1,
+                parallel_landers=1,
+                launch_time=1
+            ),
+            Tower(
+                inventory=[{'model': "TestI", 'quantity': 5}],
+                position=[30,30,30],
+                parallel_launchers=1,
+                parallel_landers=1,
+                launch_time=1
+            ),
+            Tower(
+                inventory=[{'model': "TestI", 'quantity': 5}],
+                position=[110,110,110],
+                parallel_launchers=1,
+                parallel_landers=1,
+                launch_time=1
+            )
+        ]
+
+        scheduler = Scheduler(
+            towers=towers,
+            bots=bots,
+            refuel_duration=100,
+            remaining_flight_time_at_refuel=150,
+            refuel_anticipation_buffer=100
+        )
+
+        nearest_towers = scheduler.get_nearest_towers_to_waypoint(waypoint)
+        expected_nearest_towers = [towers[1], towers[0], towers[2]]
+        self.assertEqual(nearest_towers, expected_nearest_towers)
