@@ -1,12 +1,12 @@
 from .waypoint import Waypoint
 
 class ActionWaypoint(Waypoint):
-    def __init__(self, action: str, duration: int, id: str = None):
+    def __init__(self, action: str, duration: int, id: str = None, position: list = None):
         self.action = action
         self.duration = duration
 
-        # This gets filled later
-        self.position = None
+        # This can be optionally filled later
+        self.position = position
         return super().__init__(type="action", id=id)
 
     @property
@@ -39,7 +39,8 @@ class ActionWaypoint(Waypoint):
         return cls(
             action=waypoint_dict['action'],
             duration=waypoint_dict['duration'],
-            id=waypoint_dict.get('id')
+            id=waypoint_dict.get('id'),
+            position=waypoint_dict.get('position')
         )
 
     def __repr__(self):

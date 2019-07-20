@@ -63,6 +63,16 @@ class FlightPlan:
             return True
 
     @property
+    def giving_recharge_index(self) -> int:
+        for index, waypoint in enumerate(self.waypoints):
+            if waypoint.is_action and waypoint.is_giving_recharge:
+                return index
+
+    @property
+    def has_giving_recharge_waypoint(self) -> bool:
+        return self.giving_recharge_index is not None
+
+    @property
     def is_approximated(self) -> bool:
         """
         A flight plan is approximated if all the waypoints are approximated, meaning they have a start time
@@ -85,6 +95,16 @@ class FlightPlan:
             if waypoint.is_action
             and waypoint.action == waypoint.BEING_RECHARGED
         ]
+
+    @property
+    def giving_refuel_waypoint(self) -> Optional[ActionWaypoint]:
+        for waypoint in self.waypoints:
+            if waypoint.is_action and waypoint.action == waypoint.GIVING_RECHARGE:
+                return waypoint
+
+    @property
+    def refuel_waypoint_count(self):
+        return len(self.refuel_waypoints)
 
     @property
     def total_distance(self) -> Optional[int]:
@@ -132,4 +152,15 @@ class FlightPlan:
         return (
             self.bot_model == other.bot_model
             and self.starting_position == other.starting_position
+        )
+
+    def copy(self) -> 'FlightPlan':
+        cls = type(self)
+        return cls(
+            waypoints=[
+                waypoint.copy()
+                for waypoint in self.waypoints
+            ],
+            bot_model=self.bot_model,
+            starting_position=self.starting_position
         )

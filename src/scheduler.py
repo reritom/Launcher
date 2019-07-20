@@ -10,7 +10,7 @@ from .leg_waypoint import LegWaypoint
 from .action_waypoint import ActionWaypoint
 from .bot import Bot
 
-from .tools import distance_between
+from .tools import distance_between, find_middle_position_by_ratio
 import datetime
 
 class Scheduler:
@@ -55,9 +55,7 @@ class Scheduler:
         self.validate_flight_plan(flight_plan)
 
         # Add an refueling waypoints to the flight plan
-        print(f"Original flight plan has {len(flight_plan.waypoints)} waypoints")
         self.recalculate_flight_plan(flight_plan)
-        print(f"After recalculate, there are {len(flight_plan.waypoints)}")
 
         # Flight plans don't consider absolute timings, so here will will add some approximates
         self.approximate_timings(flight_plan, launch_time)
@@ -65,13 +63,8 @@ class Scheduler:
         # Add the position to the action waypoints
         self.add_positions_to_action_waypoints(flight_plan)
 
-        with open('hello.json', 'w') as f:
-            f.write(json.dumps(flight_plan.to_dict()))
-
         # For each refueling waypoint in the flight plan, create a resupply flight plan
-        refuel_flight_plans = self.create_refuel_flight_plans(flight_plan)
-        print(f"Updated flight plan has {len(flight_plan.waypoints)} waypoints")
-        print(refuel_flight_plans)
+        #refuel_flight_plans_per_waypoint_id = self.create_refuel_flight_plans(flight_plan)
 
         schedule = Schedule()
         return schedule
@@ -89,11 +82,21 @@ class Scheduler:
 
         # The end of the final leg needs to be a tower location
         assert flight_plan.waypoints[-1].is_leg, "Last waypoint isnt a leg"
-        assert flight_plan.waypoints[-1].to_pos in [tower.position for tower in self.towers], "Last waypoint isn't targetting a tower"
+
+        tower_positions = [tower.position for tower in self.towers]
+        assert flight_plan.waypoints[-1].to_pos in tower_positions, f"Last waypoint isn't targetting a tower {flight_plan.waypoints[-1].to_pos} not in {tower_positions}"
 
         # Assert each of the legs line up
-        # TODO
-        pass
+        for index, waypoint in enumerate(flight_plan.waypoints):
+            if not index:
+                # The first waypoint is a leg
+                end_position = waypoint.to_pos
+            else:
+                if waypoint.is_leg:
+                    assert waypoint.from_pos == end_position, f"End of waypoint {index - 1} doesn't match start of waypoint {index}" # of previous leg
+                    end_position = waypoint.to_pos
+
+        return True
 
     def approximate_timings(self, flight_plan: FlightPlan, launch_time: datetime.datetime) -> None:
         """
@@ -152,117 +155,116 @@ class Scheduler:
         """
         For a given flight plan, add any necessary refueling waypoints
         """
-        if flight_plan.is_definite:
-            finished = False
-            while not finished:
-                time_since_last_recharge = 0
+        finished = False
+        while not finished:
+            time_since_last_recharge = 0
 
-                for index, waypoint in enumerate(flight_plan.waypoints):
-                    if waypoint.is_action:
-                        if waypoint.is_being_recharged:
-                            #print("Waypoint is being recharged")
-                            time_since_last_recharge = 0
-                            continue
+            for index, waypoint in enumerate(flight_plan.waypoints):
+                if waypoint.is_action:
+                    if waypoint.is_being_recharged:
+                        #print("Waypoint is being recharged")
+                        time_since_last_recharge = 0
+                        continue
 
-                        # Else we will look at the duration of the action, and split it if necessary
-                        time_since_last_recharge += waypoint.duration
+                    # Else we will look at the duration of the action, and split it if necessary
+                    time_since_last_recharge += waypoint.duration
 
-                        bot = self.get_bot_by_model(flight_plan.bot_model)
-                        threshold = bot.flight_time - self.remaining_flight_time_at_refuel - self.refuel_duration
-                        if time_since_last_recharge > threshold:
-                            # If the waypoint is giving performing a recharge, then we can't interrupt it
-                            if waypoint.is_giving_recharge:
+                    bot = self.get_bot_by_model(flight_plan.bot_model)
+                    threshold = bot.flight_time - self.remaining_flight_time_at_refuel - self.refuel_duration
+                    if time_since_last_recharge > threshold:
+                        # If the waypoint is giving performing a recharge, then we can't interrupt it
+                        if waypoint.is_giving_recharge:
+                            # Create the refueling waypoint
+                            new_waypoint = ActionWaypoint(
+                                action='being_recharged',
+                                duration=self.refuel_duration
+                            )
+
+                            # So we recharge it before the action
+                            flight_plan.waypoints.insert(index - 1, new_waypoint)
+                        else:
+                            overshoot = time_since_last_recharge - threshold
+
+                            if waypoint.duration == overshoot:
+                                # We don't split the existing waypoint, we just insert the refuel first
+
                                 # Create the refueling waypoint
                                 new_waypoint = ActionWaypoint(
                                     action='being_recharged',
                                     duration=self.refuel_duration
                                 )
 
-                                # So we recharge it before the action
-                                flight_plan.waypoints.insert(index - 1, new_waypoint)
+                                flight_plan.waypoints.insert(index, new_waypoint)
                             else:
-                                overshoot = time_since_last_recharge - threshold
+                                # We split the existing waypoint, add a refuel point, and then create a new waypoint for the remaining action
+                                waypoint.duration = waypoint.duration - overshoot
 
-                                if waypoint.duration == overshoot:
-                                    # We don't split the existing waypoint, we just insert the refuel first
+                                # Create the refueling waypoint
+                                new_waypoint = ActionWaypoint(
+                                    action='being_recharged',
+                                    duration=self.refuel_duration
+                                )
 
-                                    # Create the refueling waypoint
-                                    new_waypoint = ActionWaypoint(
-                                        action='being_recharged',
-                                        duration=self.refuel_duration
-                                    )
+                                flight_plan.waypoints.insert(index + 1, new_waypoint)
 
-                                    flight_plan.waypoints.insert(index, new_waypoint)
-                                else:
-                                    # We split the existing waypoint, add a refuel point, and then create a new waypoint for the remaining action
-                                    waypoint.duration = waypoint.duration - overshoot
+                                # Create the action waypoint with the remaining overshoot
+                                new_waypoint = ActionWaypoint(
+                                    action=waypoint.action,
+                                    duration=overshoot
+                                )
 
-                                    # Create the refueling waypoint
-                                    new_waypoint = ActionWaypoint(
-                                        action='being_recharged',
-                                        duration=self.refuel_duration
-                                    )
+                                flight_plan.waypoints.insert(index + 2, new_waypoint)
+                        #print("Breaking from action overshoot")
+                        break
 
-                                    flight_plan.waypoints.insert(index + 1, new_waypoint)
+                    #print("Continuing from action")
+                    continue
 
-                                    # Create the action waypoint with the remaining overshoot
-                                    new_waypoint = ActionWaypoint(
-                                        action=waypoint.action,
-                                        duration=overshoot
-                                    )
+                elif waypoint.is_leg:
+                    bot = self.get_bot_by_model(flight_plan.bot_model)
+                    leg_time = int(distance_between(waypoint.from_pos, waypoint.to_pos)/bot.speed)
+                    time_since_last_recharge += leg_time
 
-                                    flight_plan.waypoints.insert(index + 2, new_waypoint)
-                            #print("Breaking from action overshoot")
-                            break
+                    threshold = bot.flight_time - self.remaining_flight_time_at_refuel - self.refuel_duration
+                    #print(f"Leg, time since last {time_since_last_recharge}, threshold {threshold}")
+                    if time_since_last_recharge > threshold:
+                        overshoot = time_since_last_recharge - threshold
 
-                        #print("Continuing from action")
-                        continue
+                        # We will split the leg into two legs with a refuel inbetween
+                        overshoot_ratio = (leg_time - overshoot) / leg_time
+                        split_position = [
+                            waypoint.from_pos[i] + (waypoint.to_pos[i] - waypoint.from_pos[i]) * overshoot_ratio
+                            for i in [0, 1, 2]
+                        ]
 
-                    elif waypoint.is_leg:
-                        bot = self.get_bot_by_model(flight_plan.bot_model)
-                        leg_time = int(distance_between(waypoint.from_pos, waypoint.to_pos)/bot.speed)
-                        time_since_last_recharge += leg_time
+                        # Create the refuel
+                        new_waypoint = ActionWaypoint(
+                            action='being_recharged',
+                            duration=self.refuel_duration
+                        )
 
-                        threshold = bot.flight_time - self.remaining_flight_time_at_refuel - self.refuel_duration
-                        #print(f"Leg, time since last {time_since_last_recharge}, threshold {threshold}")
-                        if time_since_last_recharge > threshold:
-                            overshoot = time_since_last_recharge - threshold
+                        flight_plan.waypoints.insert(index + 1, new_waypoint)
 
-                            # We will split the leg into two legs with a refuel inbetween
-                            overshoot_ratio = (leg_time - overshoot) / leg_time
-                            split_position = [
-                                waypoint.from_pos[i] + (waypoint.to_pos[i] - waypoint.from_pos[i]) * overshoot_ratio
-                                for i in [0, 1, 2]
-                            ]
+                        # Create the second leg
+                        new_waypoint = LegWaypoint(
+                            cartesian_positions={
+                                'from': split_position,
+                                'to': waypoint.cartesian_positions['to']
+                            }
+                        )
 
-                            # Create the refuel
-                            new_waypoint = ActionWaypoint(
-                                action='being_recharged',
-                                duration=self.refuel_duration
-                            )
+                        flight_plan.waypoints.insert(index + 2, new_waypoint)
 
-                            flight_plan.waypoints.insert(index + 1, new_waypoint)
+                        # Turn the leg into just the first leg
+                        waypoint.cartesian_positions['to'] = split_position
+                        #print("Breaking from leg overshoot")
+                        break
 
-                            # Create the second leg
-                            new_waypoint = LegWaypoint(
-                                cartesian_positions={
-                                    'from': split_position,
-                                    'to': waypoint.cartesian_positions['to']
-                                }
-                            )
+                    #print("Continuing from leg")
+                    continue
 
-                            flight_plan.waypoints.insert(index + 2, new_waypoint)
-
-                            # Turn the leg into just the first leg
-                            waypoint.cartesian_positions['to'] = split_position
-                            #print("Breaking from leg overshoot")
-                            break
-
-                        #print("Continuing from leg")
-                        continue
-
-                else:
-                    finished = True
+            else:
+                finished = True
 
     def add_positions_to_action_waypoints(self, flight_plan: FlightPlan) -> None:
         """
@@ -286,72 +288,93 @@ class Scheduler:
 
                     i = i + 1
 
-    def create_refuel_flight_plans(self, flight_plan: FlightPlan) -> Dict[str, FlightPlan]:
+    def create_dummy_refuel_flight_plans(self, waypoint: Waypoint) -> FlightPlan:
+        """
+        For a given waypoint, return a list of potential dummy flight plans
+        """
+        assert waypoint.is_action and waypoint.is_being_recharged
+        nearest_towers = self.get_nearest_towers_to_waypoint(waypoint)
+        dummy_flight_plans = []
+
+        # For each tower we will create a dummy flight plan, and then take whichever is available
+        for tower in nearest_towers:
+            # These are the base waypoints, we will copy these for each type of inventory
+            waypoints = [
+                LegWaypoint(
+                    cartesian_positions={
+                        'from': tower.position,
+                        'to': waypoint.position
+                    }
+                ),
+                ActionWaypoint(
+                    id="critical",
+                    action="refuel_anticipation_buffer",
+                    duration=self.refuel_anticipation_buffer
+                ),
+                ActionWaypoint(
+                    action=Waypoint.GIVING_RECHARGE,
+                    duration=self.refuel_duration
+                ),
+                LegWaypoint(
+                    cartesian_positions={
+                        'from': waypoint.position,
+                        'to': tower.position
+                    }
+                )
+            ]
+
+            # Each tower can multiple types of refueler models, so we will check each
+            for bot_model in tower.inventory_models:
+                bot = self.get_bot_by_model(bot_model)
+                if bot.is_refueler:
+                    flight_plan = FlightPlan(
+                        waypoints=[
+                            waypoint.copy()
+                            for waypoint in waypoints
+                            ],
+                        bot_model=bot_model,
+                        starting_position=tower.position
+                    )
+                    dummy_flight_plans.append(flight_plan)
+
+        return dummy_flight_plans
+
+    def create_refuel_flight_plans(self, flight_plan: FlightPlan, depth=0) -> dict:
         """
         For a given flight plan, determine the flight plans for any refueling bots
         """
         assert flight_plan.is_approximated
 
-        potential_flight_plans_per_waypoint_id = {}
+        if depth > 30:
+            raise Exception("Exception")
+
         print(f"There are {len(flight_plan.refuel_waypoints)} refuel waypoints")
-
-        for refuel_waypoint in flight_plan.refuel_waypoints:
-            nearest_towers = self.get_nearest_towers_to_waypoint(refuel_waypoint)
-            print(f"Nearest towers to {refuel_waypoint} are {nearest_towers}")
-
-            # For each tower we will create a dummy flight plan, and then take whichever is available
-            for tower in nearest_towers:
-                # These are the base waypoints, we will copy these for each type of inventory
-                waypoints = [
-                    LegWaypoint(
-                        cartesian_positions={
-                            'from': tower.position,
-                            'to': refuel_waypoint.position
-                        }
-                    ),
-                    ActionWaypoint(
-                        id="critical",
-                        action="refuel_anticipation_buffer",
-                        duration=self.refuel_anticipation_buffer
-                    ),
-                    ActionWaypoint(
-                        action=Waypoint.GIVING_RECHARGE,
-                        duration=self.refuel_duration
-                    ),
-                    LegWaypoint(
-                        cartesian_positions={
-                            'from': refuel_waypoint.position,
-                            'to': tower.position
-                        }
-                    )
-                ]
-
-                # Each tower can multiple types of refueler models, so we will check each
-                for bot_model in tower.inventory_models:
-                    bot = self.get_bot_by_model(bot_model)
-                    if bot.is_refueler:
-                        flight_plan = FlightPlan(
-                            waypoints=[
-                                waypoint.copy()
-                                for waypoint in waypoints
-                                ],
-                            bot_model=bot_model,
-                            starting_position=tower.position
-                        )
-                        print(f"Potential flight plan for {refuel_waypoint}")
-                        print(flight_plan.to_dict())
-                        potential_flight_plans_per_waypoint_id.setdefault(refuel_waypoint.id, [])
-                        potential_flight_plans_per_waypoint_id[refuel_waypoint.id].append(flight_plan)
-
         calculated_flight_plans_per_waypoint_id = {}
 
-        # For each waypoint, determine the best of the available flight plans
-        for waypoint_id in potential_flight_plans_per_waypoint_id:
-            calculated_flight_plans_per_waypoint_id.setdefault(waypoint_id, [])
+        for refuel_waypoint in flight_plan.refuel_waypoints:
+            calculated_flight_plans_per_waypoint_id.setdefault(refuel_waypoint.id, [])
 
-            for potential_flight_plan in potential_flight_plans_per_waypoint_id[waypoint_id]:
-                # If we recalculate the flight plan and it ends with the same number of waypoints, then it is absolute
-                waypoint_count_before_recalculation = len(potential_flight_plan.waypoints)
+            # Get all the base flight plans for refuelers from different towers and different bot models
+            dummy_potential_flight_plans = self.create_dummy_refuel_flight_plans(refuel_waypoint)
+
+            for potential_flight_plan in dummy_potential_flight_plans:
+                # We need to prevent a recursive loop by pre-recalculating the flight plan
+                flight_plan_copy = potential_flight_plan.copy()
+                assert self.validate_flight_plan(flight_plan_copy), "Invalid before calculation"
+
+                self.recalculate_flight_plan(flight_plan_copy)
+                assert self.validate_flight_plan(flight_plan_copy), "Invalid after calculation"
+
+                self.add_positions_to_action_waypoints(flight_plan_copy)
+
+                # If there is a refuel needed while performing the refuel, we will end up in a loop
+                giving_refuel_waypoint = flight_plan_copy.giving_refuel_waypoint
+                for waypoint in flight_plan_copy.waypoints:
+                    if waypoint.is_action and waypoint.is_being_recharged:
+                        if waypoint.position == giving_refuel_waypoint.position:
+                            # We will inject a refuel point into the original potential flight plan to avoid this case
+                            self.add_pre_giving_refuel_waypoint(potential_flight_plan)
+                            assert self.validate_flight_plan(potential_flight_plan)
 
                 # General flight plan preperation
                 self.recalculate_flight_plan(potential_flight_plan)
@@ -359,32 +382,31 @@ class Scheduler:
 
                 self.approximate_timings_based_on_waypoint_eta(
                     flight_plan=potential_flight_plan,
-                    waypoint_eta=refuel_waypoint.start_time,
+                    waypoint_eta=refuel_waypoint.start_time - datetime.timedelta(seconds=self.refuel_anticipation_buffer),
                     waypoint_id="critical"
                 )
-                print("Recalculated potential flight plan is:")
-                print(potential_flight_plan.to_dict())
 
-                if abs(waypoint_count_before_recalculation - len(potential_flight_plan.waypoints)) > 1:
-                    print(f"Flight plan has {waypoint_count_before_recalculation} waypoints before update, then {len(potential_flight_plan.waypoints)}")
-                    # This needs to be monitored to limit recursion
-                    #refuel_flight_plans = self.create_refuel_flight_plans(potential_flight_plan)
-                    calculated_flight_plans_per_waypoint_id[waypoint_id].append({
-                        'related_waypoint_id': waypoint_id,
-                        'flight_plan': potential_flight_plan,
-                        'related_sub_flight_plans': [],
-                        'available': False
-                    })
-                else:
-                    calculated_flight_plans_per_waypoint_id[waypoint_id].append({
-                        'related_waypoint_id': waypoint_id,
-                        'flight_plan': potential_flight_plan,
-                        'related_sub_flight_plans': [],
-                        'available': True
-                    })
+            # The best suited flight plan is the one with the fewest waypoints
+            flight_plan_waypoint_counts = [
+                len(potential_flight_plan.waypoints)
+                for potential_flight_plan in dummy_potential_flight_plans
+            ]
 
-                print(f"{waypoint_id} -> {potential_flight_plan}")
-                print(potential_flight_plan.to_dict())
+            priority_flight_plan_index = flight_plan_waypoint_counts.index(min(flight_plan_waypoint_counts))
+            priority_flight_plan = dummy_potential_flight_plans[priority_flight_plan_index]
+            print(f"Priority flight plan requires {priority_flight_plan.refuel_waypoint_count} refuel points")
+            print(priority_flight_plan.to_dict())
+
+            # This needs to be monitored to limit recursion
+            calculated_flight_plans_per_waypoint_id[refuel_waypoint.id].append({
+                'related_waypoint_id': refuel_waypoint.id,
+                'flight_plan': priority_flight_plan,
+                'related_sub_flight_plans': (
+                    self.create_refuel_flight_plans(priority_flight_plan, depth + 1)
+                    if potential_flight_plan.refuel_waypoint_count
+                    else []
+                )
+            })
 
         return calculated_flight_plans_per_waypoint_id
 
@@ -414,3 +436,77 @@ class Scheduler:
         for bot in self.bots:
             if bot.model == model:
                 return bot
+
+    def add_pre_giving_refuel_waypoint(self, flight_plan: FlightPlan):
+        """
+        For a given flight plan with a GIVING_RECHARGE action, add refuel waypoint in the previous leg
+        """
+        assert flight_plan.has_giving_recharge_waypoint
+        print("Before adding pre-giving refuel waypoint")
+        print(flight_plan.to_dict())
+
+        # Find the GIVING_RECHARGE waypoint
+        giving_recharge_index = flight_plan.giving_recharge_index
+
+        # The previous waypoint should be an action, and the previous previous a leg
+        assert flight_plan.waypoints[giving_recharge_index - 1].is_action
+        assert flight_plan.waypoints[giving_recharge_index - 2].is_leg
+
+        leg_index = giving_recharge_index - 2
+
+        # We want to refuel sufficiently before we reach the recharge position
+        bot = self.get_bot_by_model(flight_plan.bot_model)
+        time_to_refuel_before_end_of_leg = (
+            bot.flight_time
+            - self.refuel_duration
+            - self.remaining_flight_time_at_refuel
+            - self.refuel_anticipation_buffer
+        )
+
+        leg_waypoint = flight_plan.waypoints[giving_recharge_index - 2]
+        leg_time = int(distance_between(leg_waypoint.from_pos, leg_waypoint.to_pos)/bot.speed)
+
+        # We will split the leg into two legs with a refuel inbetween
+        overshoot_ratio = (leg_time - time_to_refuel_before_end_of_leg) / leg_time
+        assert overshoot_ratio < 1
+
+        split_position = find_middle_position_by_ratio(leg_waypoint.from_pos, leg_waypoint.to_pos, overshoot_ratio)
+
+        # Create the refuel
+        new_waypoint = ActionWaypoint(
+            action='being_recharged',
+            duration=self.refuel_duration
+        )
+
+        flight_plan.waypoints.insert(leg_index + 1, new_waypoint)
+
+        # Create the second leg
+        new_waypoint = LegWaypoint(
+            cartesian_positions={
+                'from': split_position,
+                'to': leg_waypoint.cartesian_positions['to']
+            }
+        )
+
+        flight_plan.waypoints.insert(leg_index + 2, new_waypoint)
+
+        # Turn the leg into just the first leg
+        leg_waypoint.cartesian_positions['to'] = split_position
+
+        print("After adding pre-giving refuel waypoint")
+        print(flight_plan.to_dict())
+        assert self.validate_flight_plan(flight_plan)
+
+
+    def create_transit_schedule(self):
+        """
+        Return a schedule for transporting a payload from tower A to tower B
+        considering inflight refuels, tower based refuels, and waypoint optimisation.
+        """
+        pass
+
+    def cancel_active_schedule(self, schedule: Schedule):
+        """
+        For a given schedule in progress, create flight plans to handle return to base for all active flights
+        """
+        pass

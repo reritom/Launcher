@@ -5,7 +5,7 @@ from src.tower import Tower
 from src.bot import Bot
 
 import datetime, sys
-sys.setrecursionlimit(50)
+
 
 flight_plan = FlightPlan.from_file("./examples/flight_plan_1.json")
 towers = [
@@ -21,4 +21,4 @@ schedule = scheduler.determine_schedule_from_launch_time(flight_plan, when)
 
 simulator = Simulator()
 simulator.simulate_flight_plan(flight_plan)
-simulator.simulate_schedule(schedule)
+#simulator.simulate_schedule(schedule)
