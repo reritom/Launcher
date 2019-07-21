@@ -19,6 +19,6 @@ scheduler = Scheduler(towers=towers, bots=bots, refuel_duration=60, remaining_fl
 when = datetime.datetime.now() + datetime.timedelta(days=1)
 schedule = scheduler.determine_schedule_from_launch_time(flight_plan, when)
 
-simulator = Simulator()
+simulator = Simulator(bots=bots)
 simulator.simulate_flight_plan(flight_plan)
 #simulator.simulate_schedule(schedule)
