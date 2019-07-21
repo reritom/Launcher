@@ -58,6 +58,10 @@ class Simulator:
         plt.show()
 
     def get_flight_plan_dataframe(self, flight_plan) -> pd.DataFrame:
+        """
+        Return a dataframe representation of the flight plan containing the coordinates and time in seconds
+        from the start of the flight
+        """
         bot = self.get_bot_by_model(flight_plan.bot_model)
 
         duration = 0
@@ -114,6 +118,9 @@ class Simulator:
         return frame
 
     def determine_flight_plan_ranges(self, flight_plan) -> dict:
+        """
+        Return a dictionary containing the min/max ranges for each coordinate
+        """
         # -> [[x_max, x_min], [y_max, y_min], [z_max, z_min]]
         axis = [[0, 0], [0, 0], [0, 0]]
 
