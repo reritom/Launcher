@@ -497,7 +497,6 @@ class Scheduler:
         print(flight_plan.to_dict())
         assert self.validate_flight_plan(flight_plan)
 
-
     def create_transit_schedule(self):
         """
         Return a schedule for transporting a payload from tower A to tower B

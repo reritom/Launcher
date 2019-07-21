@@ -32,13 +32,6 @@ class Simulator:
         print(flight_plan_dataframe)
         #assert False
 
-        def update_graph(num):
-            data=flight_plan_dataframe.iloc[num]
-            graph.set_data(data.x, data.y)
-            graph.set_3d_properties(data.z)
-            title.set_text('3D Test, time={}'.format(num))
-            return title, graph,
-
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
         ax.set_xlim3d(int(ranges['xmin']), int(ranges['xmax']))
@@ -46,14 +39,35 @@ class Simulator:
         ax.set_zlim3d(int(ranges['zmin']), int(ranges['zmax']))
         title = ax.set_title('3D Test')
 
+        def update_graph(num, *lines):
+            data = flight_plan_dataframe.iloc[num]
+            lines[0].set_data(data.x, data.y)
+            lines[0].set_3d_properties(data.z)
+            lines[0].set_color('green')
+
+            if data.being_recharged == 1:
+                lines[1].set_data([data.x, data.x], [data.y, data.y])
+                lines[1].set_3d_properties([data.z, 0])
+                lines[1].set_color('green')
+            else:
+                lines[1].set_data([data.x, data.x], [data.y, data.y])
+                lines[1].set_3d_properties([data.z, data.z])
+                lines[1].set_color('green')
+
+            title.set_text('{} seconds'.format(num))
+            return title, lines,
+
         data = flight_plan_dataframe[flight_plan_dataframe['time']==0]
-        graph, = ax.plot(data.x, data.y, data.z, linestyle="", marker="o")
+        line, = ax.plot(data.x, data.y, data.z, linestyle="", marker="o", color='r')
+        line1, = ax.plot([data.x, data.x], [data.y, data.y], [data.z, 0], linestyle=":", marker=",", color='r')
+        lines = [line, line1]
         ani = matplotlib.animation.FuncAnimation(
             fig,
             update_graph,
             len(flight_plan_dataframe),
             interval=10,
-            blit=True
+            blit=False,
+            fargs=(lines)
         )
         plt.show()
 
@@ -71,7 +85,7 @@ class Simulator:
             elif waypoint.is_leg:
                 duration += int(distance_between(waypoint.from_pos, waypoint.to_pos)/bot.speed)
 
-        time, x, y, z = [], [], [], []
+        time, x, y, z, being_refueled, fuel_percent = [], [], [], [], [], []
 
         current_waypoint_index = 0
         current_duration_into_waypoint = 0
@@ -97,10 +111,12 @@ class Simulator:
                     x.append(int(split_position[0]))
                     y.append(int(split_position[1]))
                     z.append(int(split_position[2]))
+                    being_refueled.append(0)
                 elif current_waypoint.is_action:
                     x.append(int(current_waypoint.position[0]))
                     y.append(int(current_waypoint.position[1]))
                     z.append(int(current_waypoint.position[2]))
+                    being_refueled.append(1 if current_waypoint.is_being_recharged else 0)
             else:
                 current_waypoint_index += 1
                 current_duration_into_waypoint = 0
@@ -109,12 +125,14 @@ class Simulator:
                     x.append(int(current_waypoint.to_pos[0]))
                     y.append(int(current_waypoint.to_pos[1]))
                     z.append(int(current_waypoint.to_pos[2]))
+                    being_refueled.append(0)
                 elif current_waypoint.is_action:
                     x.append(int(current_waypoint.position[0]))
                     y.append(int(current_waypoint.position[1]))
                     z.append(int(current_waypoint.position[2]))
+                    being_refueled.append(1 if current_waypoint.is_being_recharged else 0)
 
-        frame = pd.DataFrame({"time": time, "x": x, "y": y, "z": z})
+        frame = pd.DataFrame({"time": time, "x": x, "y": y, "z": z, "being_recharged": being_refueled})
         return frame
 
     def determine_flight_plan_ranges(self, flight_plan) -> dict:
