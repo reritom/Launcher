@@ -1,4 +1,4 @@
-import uuid
+import uuid, json
 
 class Waypoint:
     """
@@ -45,4 +45,5 @@ class Waypoint:
 
     def copy(self):
         this_dict = self.to_dict()
-        return type(self).from_dict(this_dict)
+        this_json = json.dumps(this_dict)
+        return type(self).from_dict(json.loads(this_json))

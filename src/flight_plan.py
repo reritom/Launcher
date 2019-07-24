@@ -162,5 +162,5 @@ class FlightPlan:
                 for waypoint in self.waypoints
             ],
             bot_model=self.bot_model,
-            starting_position=self.starting_position
+            starting_position=[i for i in self.starting_position]
         )

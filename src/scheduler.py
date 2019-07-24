@@ -64,7 +64,7 @@ class Scheduler:
         self.add_positions_to_action_waypoints(flight_plan)
 
         # For each refueling waypoint in the flight plan, create a resupply flight plan
-        #refuel_flight_plans_per_waypoint_id = self.create_refuel_flight_plans(flight_plan)
+        refuel_flight_plans_per_waypoint_id = self.create_refuel_flight_plans(flight_plan)
 
         schedule = Schedule()
         return schedule
@@ -272,6 +272,7 @@ class Scheduler:
         previous waypoint so it can be calculated, but this function adds them for functions which don't
         access the full waypoint context.
         """
+        assert self.validate_flight_plan(flight_plan), "Flight plan invalid before adding positions"
         for index, waypoint in enumerate(flight_plan.waypoints):
             if waypoint.is_action:
                 i = 1
@@ -287,6 +288,8 @@ class Scheduler:
                         break
 
                     i = i + 1
+
+        assert self.validate_flight_plan(flight_plan), "Flight plan invalid after adding positions"
 
     def create_dummy_refuel_flight_plans(self, waypoint: Waypoint) -> FlightPlan:
         """
@@ -335,6 +338,7 @@ class Scheduler:
                         bot_model=bot_model,
                         starting_position=tower.position
                     )
+                    assert self.validate_flight_plan(flight_plan)
                     dummy_flight_plans.append(flight_plan)
 
         return dummy_flight_plans
@@ -351,33 +355,36 @@ class Scheduler:
         print(f"There are {len(flight_plan.refuel_waypoints)} refuel waypoints")
         calculated_flight_plans_per_waypoint_id = {}
 
-        for refuel_waypoint in flight_plan.refuel_waypoints:
+        for index, refuel_waypoint in enumerate(flight_plan.refuel_waypoints):
+            print(f"Looking at waypoint {index}")
             calculated_flight_plans_per_waypoint_id.setdefault(refuel_waypoint.id, [])
 
             # Get all the base flight plans for refuelers from different towers and different bot models
             dummy_potential_flight_plans = self.create_dummy_refuel_flight_plans(refuel_waypoint)
+            print(f"There are {len(dummy_potential_flight_plans)} potential flight plans")
 
             for potential_flight_plan in dummy_potential_flight_plans:
                 # We need to prevent a recursive loop by pre-recalculating the flight plan
                 flight_plan_copy = potential_flight_plan.copy()
-                assert self.validate_flight_plan(flight_plan_copy), "Invalid before calculation"
-
                 self.recalculate_flight_plan(flight_plan_copy)
-                assert self.validate_flight_plan(flight_plan_copy), "Invalid after calculation"
-
+                assert self.validate_flight_plan(flight_plan_copy), "Invalid after recalculation"
                 self.add_positions_to_action_waypoints(flight_plan_copy)
 
                 # If there is a refuel needed while performing the refuel, we will end up in a loop
                 giving_refuel_waypoint = flight_plan_copy.giving_refuel_waypoint
+                print(f"Flight plan copy has {len(flight_plan.waypoints)} waypoints")
                 for waypoint in flight_plan_copy.waypoints:
                     if waypoint.is_action and waypoint.is_being_recharged:
-                        if waypoint.position == giving_refuel_waypoint.position:
+                        print("This one is being recharged")
+                        if waypoint.position and waypoint.position == giving_refuel_waypoint.position:
+                            print("And being recharged at the refuel location")
                             # We will inject a refuel point into the original potential flight plan to avoid this case
                             self.add_pre_giving_refuel_waypoint(potential_flight_plan)
                             assert self.validate_flight_plan(potential_flight_plan)
 
                 # General flight plan preperation
                 self.recalculate_flight_plan(potential_flight_plan)
+                assert self.validate_flight_plan(potential_flight_plan)
                 self.add_positions_to_action_waypoints(potential_flight_plan)
 
                 self.approximate_timings_based_on_waypoint_eta(
@@ -444,6 +451,7 @@ class Scheduler:
         """
         For a given flight plan with a GIVING_RECHARGE action, add refuel waypoint in the previous leg
         """
+        assert self.validate_flight_plan(flight_plan), "Invalid flight plan prior to adding pre-giving refuel waypoint"
         assert flight_plan.has_giving_recharge_waypoint
         print("Before adding pre-giving refuel waypoint")
         print(flight_plan.to_dict())
