@@ -4,6 +4,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.animation
 import pandas as pd
 from typing import Optional
+import datetime
 
 from .bot import Bot
 from .tools import distance_between, find_middle_position_by_ratio
@@ -54,13 +55,18 @@ class Simulator:
                 lines[1].set_3d_properties([data.z, data.z])
                 lines[1].set_color('green')
 
-            title.set_text('{} seconds'.format(num))
+            title.set_text('{}'.format(str(datetime.timedelta(seconds=num))))
             return title, lines,
 
         data = flight_plan_dataframe[flight_plan_dataframe['time']==0]
+
+        # Bot point
         line, = ax.plot(data.x, data.y, data.z, linestyle="", marker="o", color='r')
+
+        # Recharge line
         line1, = ax.plot([data.x, data.x], [data.y, data.y], [data.z, 0], linestyle=":", marker=",", color='r')
         lines = [line, line1]
+
         ani = matplotlib.animation.FuncAnimation(
             fig,
             update_graph,
@@ -131,6 +137,7 @@ class Simulator:
                     y.append(int(current_waypoint.position[1]))
                     z.append(int(current_waypoint.position[2]))
                     being_refueled.append(1 if current_waypoint.is_being_recharged else 0)
+
 
         frame = pd.DataFrame({"time": time, "x": x, "y": y, "z": z, "being_recharged": being_refueled})
         return frame

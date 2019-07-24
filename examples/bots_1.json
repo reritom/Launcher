@@ -16,8 +16,8 @@
   {
      "model":"GypsyMarkI",
      "type": "Operator",
-     "flight_time":5000,
-     "speed":5,
+     "flight_time":1000,
+     "speed":10,
      "cruising_altitude": 500
   }
 ]

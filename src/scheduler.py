@@ -424,6 +424,9 @@ class Scheduler:
         # We then sort by distance and return a list of towers with the first being the closest
         distances.sort(key=lambda value: value[0])
 
+        if len(distances) >= 2:
+            assert distances[0] <= distances[1]
+
         return [
             distance[1]
             for distance in distances
