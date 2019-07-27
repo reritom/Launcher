@@ -66,6 +66,8 @@ class Scheduler:
         # For each refueling waypoint in the flight plan, create a resupply flight plan
         refuel_flight_plans_per_waypoint_id = self.create_refuel_flight_plans(flight_plan)
 
+        print(refuel_flight_plans_per_waypoint_id)
+
         schedule = Schedule()
         return schedule
 
@@ -472,13 +474,16 @@ class Scheduler:
             - self.refuel_duration
             - self.remaining_flight_time_at_refuel
             - self.refuel_anticipation_buffer
+            - 60 # An additional buffer
         )
+
+        #THIS IS WRONG, AND ALSO CONSIDER THAT IF THE NEWLY CALCULATED RECHARGE POINT IS AT THE TOWER LOCATION, DONT BOTHER
 
         leg_waypoint = flight_plan.waypoints[giving_recharge_index - 2]
         leg_time = int(distance_between(leg_waypoint.from_pos, leg_waypoint.to_pos)/bot.speed)
 
         # We will split the leg into two legs with a refuel inbetween
-        overshoot_ratio = (leg_time - time_to_refuel_before_end_of_leg) / leg_time
+        overshoot_ratio = 0.5#(leg_time - time_to_refuel_before_end_of_leg) / leg_time
         assert overshoot_ratio < 1
 
         split_position = find_middle_position_by_ratio(leg_waypoint.from_pos, leg_waypoint.to_pos, overshoot_ratio)
