@@ -21,17 +21,156 @@ class Simulator:
             if bot.model == model:
                 return bot
 
+    def determine_schedule_ranges(self, schedule) -> dict:
+        """
+        This method returns a dictionary containing the max and min value for each axis
+        -> {
+            'xmax': <int>,
+            'xmin': <int>,
+            'ymax': <int>,
+            'ymin': <int>,
+            'zmax': <int>,
+            'zmin': <int>
+        }
+        """
+        assert schedule.flight_plans
+
+        flight_plan_range_dicts = [
+            self.determine_flight_plan_ranges(flight_plan)
+            for flight_plan in schedule.flight_plans
+        ]
+
+        ranges = flight_plan_range_dicts[0]
+
+        if len(flight_plan_range_dicts) > 1:
+            for flight_plan_range_dict in flight_plan_range_dicts[1:]:
+                for key in ['xmin', 'ymin', 'zmin']:
+                    if flight_plan_range_dict[key] < ranges[key]:
+                        ranges[key] = flight_plan_range_dict[key]
+
+                for key in ['xmax', 'ymax', 'zmax']:
+                    if flight_plan_range_dict[key] > ranges[key]:
+                        ranges[key] = flight_plan_range_dict[key]
+
+        return ranges
+
     def simulate_schedule(self, schedule):
-        pass
+        # Determine the max and mins for each axis
+        ranges = self.determine_schedule_ranges(schedule)
+
+        flight_plan_dataframes = [
+            self.get_flight_plan_dataframe(flight_plan)
+            for flight_plan in schedule.flight_plans
+        ]
+
+        # Get the start time of the schedule to determine the offsets
+        schedule_start_time = schedule.start_time # Computed, so we store it
+
+        # Offset the dataframe timings
+        for index, dataframe in enumerate(flight_plan_dataframes):
+            offset = schedule.flight_plans[index].start_time - schedule_start_time
+
+            for i, row in dataframe.iterrows():
+                dataframe.set_value(i, 'time', row.time + offset.total_seconds())
+
+        # Simulation duration in seconds
+        simulation_duration = int(schedule.duration)
+
+        # Plot setup
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.set_xlim3d(int(ranges['xmin']), int(ranges['xmax']))
+        ax.set_ylim3d(int(ranges['ymin']), int(ranges['ymax']))
+        ax.set_zlim3d(int(ranges['zmin']), int(ranges['zmax']))
+        title = ax.set_title('3D Test')
+
+        def update_graph(num, *lines):
+            now = schedule_start_time + datetime.timedelta(seconds=num)
+
+            for index, flight_plan in enumerate(schedule.flight_plans):
+                # Look at relevent flight plans
+                if now >= flight_plan.start_time and now <= flight_plan.end_time:
+                    # Get the dataframe for this flight plan
+                    dataframe = flight_plan_dataframes[index]
+
+                    # Get the row
+                    offset = flight_plan.start_time - schedule_start_time
+                    print(f"Num {num}, offset {offset}, reduced {int(num - int(offset.total_seconds()))}")
+                    try:
+                        data = dataframe.iloc[int(num - int(offset.total_seconds()))]
+                    except:
+                        continue
+                    print(f"Row {type(data)} {data}")
+
+                    # Then we show this bot position
+                    lines[index][0].set_alpha(1.0)
+                    lines[index][0].set_data(data.x, data.y)
+                    lines[index][0].set_3d_properties(data.z)
+
+                    print(f"data.being_recharged {data.being_recharged}")
+
+                    if data.being_recharged == 1:
+                        lines[index][1].set_data([data.x, data.x], [data.y, data.y])
+                        lines[index][1].set_3d_properties([data.z, 0])
+                        lines[index][1].set_alpha(1.0)
+                    else:
+                        lines[index][1].set_data([data.x, data.x], [data.y, data.y])
+                        lines[index][1].set_3d_properties([data.z, data.z])
+                        lines[index][1].set_alpha(0.0)
+                else:
+                    # We hide the line
+                    lines[index][0].set_alpha(0.0)
+                    lines[index][1].set_alpha(0.0)
+
+            title.set_text('{}'.format(str(datetime.timedelta(seconds=num))))
+            return title, lines,
+
+        flight_plan_dot_lines = []
+        for index, flight_plan_dataframe in enumerate(flight_plan_dataframes):
+            row_zero = flight_plan_dataframe.iloc[0]
+
+            dot_line, = ax.plot(
+                [row_zero.x],
+                [row_zero.y],
+                row_zero.z,
+                linestyle="",
+                marker="o" if schedule.flight_plans[index].id == 'main' else '.',
+                color='red' if schedule.flight_plans[index].id == 'main' else 'blue',
+                alpha=1.0 if schedule.flight_plans[index].id == 'main' else 0.0
+            )
+
+            recharge_line, = ax.plot(
+                [row_zero.x],
+                [row_zero.y],
+                row_zero.z,
+                linestyle=":",
+                marker=",",
+                color='red' if schedule.flight_plans[index].id == 'main' else 'blue',
+                alpha=0.0
+            )
+
+            flight_plan_dot_lines.append((dot_line, recharge_line))
+
+        print(f"Simulation duration {simulation_duration}")
+
+        ani = matplotlib.animation.FuncAnimation(
+            fig,
+            update_graph,
+            simulation_duration,
+            interval=10,
+            blit=False,
+            fargs=(flight_plan_dot_lines)
+        )
+        plt.show()
+
 
     def simulate_flight_plan(self, flight_plan):
         # Determine the max and mins for each axis
         ranges = self.determine_flight_plan_ranges(flight_plan)
-        print(f"Ranges are {ranges}")
+        #print(f"Ranges are {ranges}")
 
         flight_plan_dataframe = self.get_flight_plan_dataframe(flight_plan)
-        print(flight_plan_dataframe)
-        #assert False
+        #print(flight_plan_dataframe)
 
         fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')

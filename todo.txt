@@ -1,0 +1,9 @@
+- Flight plans using start tower and end tower
+- Allow flights to end at other towers
+- Refuel during payload action should be parallel
+- Towers to be renamed to Ports
+- Schedules to check if flight plans are available
+- Towers tracking launch and landing windows
+- Static and dynamic ports
+- Create sourcing schedules
+- Allow less defined flight plans (This payload id, at this position, at this time, for this duration)

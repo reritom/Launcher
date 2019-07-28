@@ -1,4 +1,4 @@
-import json
+import json, uuid
 from typing import Optional
 
 from .leg_waypoint import LegWaypoint
@@ -25,13 +25,15 @@ class FlightPlan:
                 for waypoint_dict in flight_plan_dict.get('waypoints', [])
                 ],
             bot_model=flight_plan_dict['bot_model'],
-            starting_position=flight_plan_dict['starting_position']
+            starting_position=flight_plan_dict['starting_position'],
+            id=flight_plan_dict.get('id')
         )
 
-    def __init__(self, waypoints: list = None, bot_model: str = None, starting_position: list = None):
+    def __init__(self, waypoints: list = None, bot_model: str = None, starting_position: list = None, id: str = None):
         self.waypoints = waypoints if waypoints else []
         self.bot_model = bot_model if bot_model else None
         self.starting_position = starting_position if starting_position else [0, 0, 0]
+        self.id = id if id else str(uuid.uuid4())
 
     def add_waypoint(self, waypoint: Waypoint):
         # TODO add some validations to do with positions
@@ -130,7 +132,8 @@ class FlightPlan:
                 in self.waypoints
             ],
             'bot_model': self.bot_model,
-            'starting_position': self.starting_position
+            'starting_position': self.starting_position,
+            'id': self.id
         }
 
     def __eq__(self, other):
@@ -164,3 +167,17 @@ class FlightPlan:
             bot_model=self.bot_model,
             starting_position=[i for i in self.starting_position]
         )
+
+    @property
+    def start_time(self):
+        """
+        Return the start time of the first waypoint
+        """
+        return self.waypoints[0].start_time
+
+    @property
+    def end_time(self):
+        """
+        Return the end time of the final waypoint
+        """
+        return self.waypoints[-1].end_time

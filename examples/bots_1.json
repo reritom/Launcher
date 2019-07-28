@@ -2,14 +2,14 @@
   {
     "model": "RefuelerMarkI",
     "type": "Refueler",
-    "speed": 5,
+    "speed": 30,
     "flight_time": 2200,
     "cruising_altitude": 500
   },
   {
     "model": "RefuelerMarkII",
     "type": "Refueler",
-    "speed": 7,
+    "speed": 30,
     "flight_time": 2200,
     "cruising_altitude": 500
   },
@@ -17,7 +17,7 @@
      "model":"GypsyMarkI",
      "type": "Operator",
      "flight_time":1000,
-     "speed":10,
+     "speed":15,
      "cruising_altitude": 500
   }
 ]

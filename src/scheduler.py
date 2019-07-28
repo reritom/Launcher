@@ -10,7 +10,7 @@ from .leg_waypoint import LegWaypoint
 from .action_waypoint import ActionWaypoint
 from .bot import Bot
 
-from .tools import distance_between, find_middle_position_by_ratio
+from .tools import distance_between, find_middle_position_by_ratio, Encoder
 import datetime
 
 class Scheduler:
@@ -47,6 +47,28 @@ class Scheduler:
         assert waypoint_id in [waypoint.id for waypoint in flight_time.waypoints]
         self.validate_flight_plan(flight_plan)
 
+        # Add an refueling waypoints to the flight plan
+        self.recalculate_flight_plan(flight_plan)
+
+        # Flight plans don't consider absolute timings, so here will will add some approximates
+        self.approximate_timings_based_on_waypoint_eta(
+            flight_plan=flight_plan,
+            waypoint_id=waypoint_id,
+            waypoint_eta=waypoint_eta
+        )
+
+        # Add the position to the action waypoints
+        self.add_positions_to_action_waypoints(flight_plan)
+
+        # For each refueling waypoint in the flight plan, create a resupply flight plan
+        refuel_flight_plans_per_waypoint_id = self.create_refuel_flight_plans(flight_plan)
+
+        with open("hello.json", 'w') as f:
+            f.write(json.dumps(refuel_flight_plans_per_waypoint_id, cls=Encoder))
+
+        schedule = Schedule()
+        return schedule
+
     def determine_schedule_from_launch_time(self, flight_plan: FlightPlan, launch_time: datetime.datetime) -> Schedule:
         """
         For a given flight plan, determine when all the supporting bots need to be deployed and their
@@ -66,10 +88,23 @@ class Scheduler:
         # For each refueling waypoint in the flight plan, create a resupply flight plan
         refuel_flight_plans_per_waypoint_id = self.create_refuel_flight_plans(flight_plan)
 
-        print(refuel_flight_plans_per_waypoint_id)
+        schedule_dict = {
+            'flight_plan': flight_plan,
+            'related_sub_flight_plans': refuel_flight_plans_per_waypoint_id
+        }
 
-        schedule = Schedule()
+        with open("hello.json", 'w') as f:
+            f.write(json.dumps(refuel_flight_plans_per_waypoint_id, cls=Encoder))
+
+        schedule = Schedule(raw_schedule=schedule_dict)
+        print(f"Schedule contains {len(schedule.flight_plans)} flight plans")
         return schedule
+
+    def validate_schedule_availabilities(self, schedule: Schedule):
+        pass
+
+    def calculate_sourcing_schedule(self, schedule: Schedule) -> Schedule:
+        pass
 
     def validate_flight_plan(self, flight_plan: FlightPlan):
         """
@@ -408,12 +443,11 @@ class Scheduler:
 
             # This needs to be monitored to limit recursion
             calculated_flight_plans_per_waypoint_id[refuel_waypoint.id].append({
-                'related_waypoint_id': refuel_waypoint.id,
                 'flight_plan': priority_flight_plan,
                 'related_sub_flight_plans': (
                     self.create_refuel_flight_plans(priority_flight_plan, depth + 1)
                     if potential_flight_plan.refuel_waypoint_count
-                    else []
+                    else {}
                 )
             })
 
@@ -483,7 +517,8 @@ class Scheduler:
         leg_time = int(distance_between(leg_waypoint.from_pos, leg_waypoint.to_pos)/bot.speed)
 
         # We will split the leg into two legs with a refuel inbetween
-        overshoot_ratio = 0.5#(leg_time - time_to_refuel_before_end_of_leg) / leg_time
+        overshoot_ratio = (leg_time - time_to_refuel_before_end_of_leg) / leg_time
+        overshoot_ratio = overshoot_ratio if overshoot_ratio > 0.5 else 0.5
         assert overshoot_ratio < 1
 
         split_position = find_middle_position_by_ratio(leg_waypoint.from_pos, leg_waypoint.to_pos, overshoot_ratio)
