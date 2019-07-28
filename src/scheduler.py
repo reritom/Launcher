@@ -94,7 +94,7 @@ class Scheduler:
         }
 
         with open("hello.json", 'w') as f:
-            f.write(json.dumps(refuel_flight_plans_per_waypoint_id, cls=Encoder))
+            f.write(json.dumps(schedule_dict, cls=Encoder))
 
         schedule = Schedule(raw_schedule=schedule_dict)
         print(f"Schedule contains {len(schedule.flight_plans)} flight plans")

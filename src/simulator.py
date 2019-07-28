@@ -5,6 +5,11 @@ import matplotlib.animation
 import pandas as pd
 from typing import Optional
 import datetime
+import math as maths
+
+# To hide the df.set_value deprecation warning for now
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 from .bot import Bot
 from .tools import distance_between, find_middle_position_by_ratio
@@ -65,13 +70,7 @@ class Simulator:
 
         # Get the start time of the schedule to determine the offsets
         schedule_start_time = schedule.start_time # Computed, so we store it
-
-        # Offset the dataframe timings
-        for index, dataframe in enumerate(flight_plan_dataframes):
-            offset = schedule.flight_plans[index].start_time - schedule_start_time
-
-            for i, row in dataframe.iterrows():
-                dataframe.set_value(i, 'time', row.time + offset.total_seconds())
+        print(f"Schedule starts at {schedule_start_time} and ends at {schedule.end_time}")
 
         # Simulation duration in seconds
         simulation_duration = int(schedule.duration)
@@ -92,22 +91,21 @@ class Simulator:
                 if now >= flight_plan.start_time and now <= flight_plan.end_time:
                     # Get the dataframe for this flight plan
                     dataframe = flight_plan_dataframes[index]
+                    dataframe_index = int((now - flight_plan.start_time).total_seconds())
 
                     # Get the row
-                    offset = flight_plan.start_time - schedule_start_time
-                    print(f"Num {num}, offset {offset}, reduced {int(num - int(offset.total_seconds()))}")
                     try:
-                        data = dataframe.iloc[int(num - int(offset.total_seconds()))]
-                    except:
+                        data = dataframe.iloc[dataframe_index]
+                    except Exception as e:
+                        print(f"For FP {index} trying to access {dataframe_index}")
+                        print(f"in {dataframe}")
+                        print(e)
                         continue
-                    print(f"Row {type(data)} {data}")
 
                     # Then we show this bot position
                     lines[index][0].set_alpha(1.0)
                     lines[index][0].set_data(data.x, data.y)
                     lines[index][0].set_3d_properties(data.z)
-
-                    print(f"data.being_recharged {data.being_recharged}")
 
                     if data.being_recharged == 1:
                         lines[index][1].set_data([data.x, data.x], [data.y, data.y])
@@ -163,7 +161,6 @@ class Simulator:
         )
         plt.show()
 
-
     def simulate_flight_plan(self, flight_plan):
         # Determine the max and mins for each axis
         ranges = self.determine_flight_plan_ranges(flight_plan)
@@ -216,11 +213,7 @@ class Simulator:
         )
         plt.show()
 
-    def get_flight_plan_dataframe(self, flight_plan) -> pd.DataFrame:
-        """
-        Return a dataframe representation of the flight plan containing the coordinates and time in seconds
-        from the start of the flight
-        """
+    def get_flight_plan_duration(self, flight_plan):
         bot = self.get_bot_by_model(flight_plan.bot_model)
 
         duration = 0
@@ -228,7 +221,17 @@ class Simulator:
             if waypoint.is_action:
                 duration += waypoint.duration
             elif waypoint.is_leg:
-                duration += int(distance_between(waypoint.from_pos, waypoint.to_pos)/bot.speed)
+                duration += distance_between(waypoint.from_pos, waypoint.to_pos)/bot.speed
+
+        return int(duration)
+
+    def get_flight_plan_dataframe(self, flight_plan) -> pd.DataFrame:
+        """
+        Return a dataframe representation of the flight plan containing the coordinates and time in seconds
+        from the start of the flight
+        """
+        bot = self.get_bot_by_model(flight_plan.bot_model)
+        duration = self.get_flight_plan_duration(flight_plan)
 
         time, x, y, z, being_refueled, fuel_percent = [], [], [], [], [], []
 
@@ -236,15 +239,15 @@ class Simulator:
         current_duration_into_waypoint = 0
         for second in range(duration):
             # See which waypoint this is in to determine the position
-            current_duration_into_waypoint += 1
             try:
                 current_waypoint = flight_plan.waypoints[current_waypoint_index]
             except IndexError:
                 break
+
             current_waypoint_duration = (
                 current_waypoint.duration
                 if current_waypoint.is_action
-                else int(distance_between(waypoint.from_pos, waypoint.to_pos)/bot.speed)
+                else int(distance_between(current_waypoint.from_pos, current_waypoint.to_pos)/bot.speed)
             )
 
             time.append(second)
@@ -276,6 +279,8 @@ class Simulator:
                     y.append(int(current_waypoint.position[1]))
                     z.append(int(current_waypoint.position[2]))
                     being_refueled.append(1 if current_waypoint.is_being_recharged else 0)
+
+            current_duration_into_waypoint += 1
 
 
         frame = pd.DataFrame({"time": time, "x": x, "y": y, "z": z, "being_recharged": being_refueled})

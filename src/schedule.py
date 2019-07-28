@@ -3,13 +3,9 @@
 class Schedule:
     def __init__(self, raw_schedule: dict):
         self.raw_schedule = raw_schedule
-        self.schedule = []
         self.applicable = True
         self.flight_plans = self.get_flight_plans_from_raw_schedule(raw_schedule)
-        self.flight_plans.sort(key=lambda x: x.start_time, reverse=True)
-
-    def add(self, time: int, flight_plan):
-        self.schedule.append((time, flight_plan))
+        self.flight_plans.sort(key=lambda x: x.start_time)
 
     def to_dict(self):
         return {
