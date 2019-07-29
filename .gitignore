@@ -2,4 +2,8 @@
 __pycache__/
 *.py[cod]
 .DS_Store
+
+# Dummy debug files
 dummy.py
+im.mp4
+hello.json
