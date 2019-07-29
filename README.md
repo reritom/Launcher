@@ -1,4 +1,4 @@
-#Abstract
+# Abstract
 
 Consider a bot that given bot has 2 attributes. The average flight time (flight_time), and the average speed (speed). Trivially, we can assume that the average maximum distance the bot can travel is flight_time/speed.
 
@@ -8,14 +8,14 @@ But what if you wish to fly the bot 10km? or 20km? What if you want to fly 10km 
 
 This project considers the scheduling of a dynamic in-flight refuelling system.
 
-#Introduction
+# Introduction
 Introduction
 
-##Flight plans
+## Flight plans
 Flight plans
 
-##Schedules
+## Schedules
 Schedules
 
-#Core Logic
+# Core Logic
 Core logic
