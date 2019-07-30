@@ -18,7 +18,7 @@ Flight plans
 Schedules
 
 ### Example 1
-![Dynamic Demo](demo/demo_1.mp4)
+![Dynamic Demo](demo/demo_1.gif)
 
 # Core Logic
 Core logic
