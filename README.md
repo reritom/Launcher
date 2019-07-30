@@ -10,15 +10,35 @@ This project considers the scheduling of a dynamic in-flight refuelling system.
 
 # Introduction
 Introduction
+terminology: flight plan, waypoint, tower, bot, scheduler
+
 
 ## Flight plans
 Flight plans
+
+mostly defined flight plan
+```json
+{
+  "hello": "world"
+}
+
+```
+json repr
+partially defined
+
 
 ## Schedules
 Schedules
 
 ### Example 1
+demo showing multiple towers
+
+### Example 2
+demo showing bots refueling eachother
 ![Dynamic Demo](demo/demo_1.gif)
+
+### Example 3
+demo showing multiple main bots creating a grid in space
 
 # Core Logic
 Core logic
