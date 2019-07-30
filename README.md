@@ -52,6 +52,9 @@ We consider this as a two-third defined flight plan as it contains payload waypo
 
 Note the bot model has been defined as part of the flight plan, because the flight plan is defined for a given payload, and we assume certain payloads will require certain bot models.
 
+This simulation shows the energy deficit for this flight plan:
+GIF TIME
+
 To make this into fully defined flight plan, we need to consider the energy deficit, and then determine the solution.
 Practically, we do this by considering the following variables:
 - The charge time remaining when we want to perform the refuel (remaining_flight_time_at_refuel)
@@ -66,12 +69,27 @@ If we define the following variables as such:
 - bot_speed = 20m/s
 
 We end up with a recalculated flight plan resembling the following:
+JSON TIME
 
+Which can be simulated as such (Note that the dotted lines means the a refuelling action is being performed on the bot)
+GIF TIME
 
-
+So at this point we have a fully defined flight plan which knows when and where it needs refuelling, but we have yet to determine the scheduling of these refuels
 
 ## Schedules
-Schedules
+Given a fully defined flight plan, we need to determine all sub-flight plans for the refuelling bots, and potentially the sub-sub-flight plans to for refuelling refuel bots on a recursive basis.
+
+??
+??
+
+Flight plan orchestration for payload carriers?
+
+## Flexible Schedules
+Not all flight plans are as simple to design as the aforementioned. Consider the client has payloads located at multiple towers. Their command could be as simple as "I want any one of these payloads, or a specific one of these payloads, at this position, at this time, for this duration".
+
+In this case, we have to consider the sourcing of the payload, the transit of the payload, any in-between flight plans, and then the eventual flight plan.
+
+Representing a command like this in JSON is not as simple due to the open-endedness of the request. So instead this is implemented in the scheduler class directly.
 
 ### Example 1
 demo showing multiple towers
