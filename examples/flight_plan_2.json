@@ -1,0 +1,26 @@
+{
+   "id": "flight_plan_example_2",
+   "bot_model": "GypsyMarkI",
+   "starting_position":[0, 0, 0],
+   "waypoints":[
+      {
+         "type":"leg",
+         "cartesian_positions":{
+            "from":[0, 0, 0],
+            "to":[5000, 5000, 5000]
+         }
+      },
+      {
+         "type":"action",
+         "action":"payload",
+         "duration":1000
+      },
+      {
+         "type":"leg",
+         "cartesian_positions":{
+            "from":[5000, 5000, 5000],
+            "to":[0, 0, 0]
+         }
+      }
+   ]
+}

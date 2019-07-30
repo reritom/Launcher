@@ -7,7 +7,7 @@ from src.bot import Bot
 import datetime, sys
 
 
-flight_plan = FlightPlan.from_file("./examples/flight_plan_1.json")
+flight_plan = FlightPlan.from_file("./examples/flight_plan_2.json")
 towers = [
     Tower.from_file("./examples/towers/tower_0.json"),
     Tower.from_file("./examples/towers/tower_1.json")

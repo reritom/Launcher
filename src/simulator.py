@@ -206,13 +206,14 @@ class Simulator:
             blit=False,
             fargs=(flight_plan_dot_lines)
         )
-        """
+
         plt.show()
         """
         # Set up formatting for the movie files
         Writer = matplotlib.animation.writers['ffmpeg']
         writer = Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
         ani.save('im.mp4', writer=writer)
+        """
 
 
     def simulate_flight_plan(self, flight_plan):

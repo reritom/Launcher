@@ -1,6 +1,8 @@
 from .waypoint import Waypoint
 
 class ActionWaypoint(Waypoint):
+    PAYLOAD_ACTION = "payload"
+
     def __init__(self, action: str, duration: int, id: str = None, position: list = None):
         self.action = action
         self.duration = duration
@@ -11,11 +13,15 @@ class ActionWaypoint(Waypoint):
 
     @property
     def is_being_recharged(self):
-        return self.action == Waypoint.BEING_RECHARGED
+        return Waypoint.BEING_RECHARGED in self.action.split(' ')
 
     @property
     def is_giving_recharge(self):
-        return self.action == Waypoint.GIVING_RECHARGE
+        return Waypoint.GIVING_RECHARGE in self.action.split(' ')
+
+    @property
+    def is_payload_action(self):
+        return ActionWaypoint.PAYLOAD_ACTION in self.action.split(' ')
 
     def to_dict(self):
         dict_self = {

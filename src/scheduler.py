@@ -79,6 +79,9 @@ class Scheduler:
         # Add an refueling waypoints to the flight plan
         self.recalculate_flight_plan(flight_plan)
 
+        with open("hello.json", 'w') as f:
+            f.write(json.dumps(flight_plan.to_dict(), cls=Encoder))
+        raise Exception()
         # Flight plans don't consider absolute timings, so here will will add some approximates
         self.approximate_timings(flight_plan, launch_time)
 
@@ -92,9 +95,6 @@ class Scheduler:
             'flight_plan': flight_plan,
             'related_sub_flight_plans': refuel_flight_plans_per_waypoint_id
         }
-
-        with open("hello.json", 'w') as f:
-            f.write(json.dumps(schedule_dict, cls=Encoder))
 
         schedule = Schedule(raw_schedule=schedule_dict)
         print(f"Schedule contains {len(schedule.flight_plans)} flight plans")
@@ -233,24 +233,52 @@ class Scheduler:
 
                                 flight_plan.waypoints.insert(index, new_waypoint)
                             else:
-                                # We split the existing waypoint, add a refuel point, and then create a new waypoint for the remaining action
-                                waypoint.duration = waypoint.duration - overshoot
+                                # TODO MAKE THIS VARIABLE PART OF THE FLIGHT PLAN
+                                refuel_in_parallel_with_payload = True
 
-                                # Create the refueling waypoint
-                                new_waypoint = ActionWaypoint(
-                                    action='being_recharged',
-                                    duration=self.refuel_duration
-                                )
+                                if refuel_in_parallel_with_payload and waypoint.is_payload_action:
+                                    # We don't need to add additional time to the action waypoint unless necessary
 
-                                flight_plan.waypoints.insert(index + 1, new_waypoint)
+                                    # TODO THIS IF-ELIF-ELSE ISNT CORRECT
+                                    if overshoot > waypoint.duration:
+                                        # Create the refueling waypoint
+                                        new_waypoint = ActionWaypoint(
+                                            action='being_recharged',
+                                            duration=self.refuel_duration
+                                        )
 
-                                # Create the action waypoint with the remaining overshoot
-                                new_waypoint = ActionWaypoint(
-                                    action=waypoint.action,
-                                    duration=overshoot
-                                )
+                                        flight_plan.waypoints.insert(index + 1, new_waypoint)
+                                    elif overshoot == waypoint.duration:
+                                        waypoint.action = "payload being_recharged"
+                                    else:
+                                        waypoint.duration = waypoint.duration - overshoot
 
-                                flight_plan.waypoints.insert(index + 2, new_waypoint)
+                                        # Create the refueling waypoint
+                                        new_waypoint = ActionWaypoint(
+                                            action='payload being_recharged',
+                                            duration=self.refuel_duration
+                                        )
+
+                                        flight_plan.waypoints.insert(index + 1, new_waypoint)
+                                else:
+                                    # We split the existing waypoint, add a refuel point, and then create a new waypoint for the remaining action
+                                    waypoint.duration = waypoint.duration - overshoot
+
+                                    # Create the refueling waypoint
+                                    new_waypoint = ActionWaypoint(
+                                        action='being_recharged',
+                                        duration=self.refuel_duration
+                                    )
+
+                                    flight_plan.waypoints.insert(index + 1, new_waypoint)
+
+                                    # Create the action waypoint with the remaining overshoot
+                                    new_waypoint = ActionWaypoint(
+                                        action=waypoint.action,
+                                        duration=overshoot
+                                    )
+
+                                    flight_plan.waypoints.insert(index + 2, new_waypoint)
                         #print("Breaking from action overshoot")
                         break
 
