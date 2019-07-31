@@ -57,6 +57,7 @@ class Heatmap:
 
     @staticmethod
     def get_reduced_rgb_colour(value):
+        print(f"Value is {value}")
         rgb = Heatmap.get_rgb_colour(value)
         return tuple(i/256 for i in rgb)
 
@@ -235,27 +236,36 @@ class Simulator:
             data = flight_plan_dataframe.iloc[num]
             lines[0].set_data(data.x, data.y)
             lines[0].set_3d_properties(data.z)
-            lines[0].set_color('green')
+            print(data.remaining_fuel)
+            lines[0].set_color(
+                Heatmap.get_reduced_rgb_colour(data.remaining_fuel)
+                if data.remaining_fuel > 0
+                else 'black'
+            )
 
             if data.being_recharged == 1:
-                lines[1].set_data([data.x, data.x], [data.y, data.y])
-                lines[1].set_3d_properties([data.z, 0])
-                lines[1].set_color('green')
+                lines[1].set_alpha(1.0)
             else:
-                lines[1].set_data([data.x, data.x], [data.y, data.y])
-                lines[1].set_3d_properties([data.z, data.z])
-                lines[1].set_color('green')
+                lines[1].set_alpha(0.0)
 
-            title.set_text('{}'.format(str(datetime.timedelta(seconds=num))))
+            title.set_text('{} - remaining fuel {}%'.format(str(datetime.timedelta(seconds=num)), int(data.remaining_fuel*100)))
             return title, lines,
 
-        data = flight_plan_dataframe[flight_plan_dataframe['time']==0]
+        data = flight_plan_dataframe.iloc[0]
+        print(Heatmap.get_reduced_rgb_colour(data.remaining_fuel))
 
         # Bot point
-        line, = ax.plot(data.x, data.y, data.z, linestyle="", marker="o", color='r')
+        line, = ax.plot(
+            [data.x],
+            [data.y],
+            data.z,
+            linestyle="",
+            marker="o",
+            color=Heatmap.get_reduced_rgb_colour(data.remaining_fuel),
+        )
 
         # Recharge line
-        line1, = ax.plot([data.x, data.x], [data.y, data.y], [data.z, 0], linestyle=":", marker=",", color='r')
+        line1, = ax.plot([data.x, data.x], [data.y, data.y], [data.z, 0], linestyle=":", marker=",", color='green')
         lines = [line, line1]
 
         ani = matplotlib.animation.FuncAnimation(
@@ -266,7 +276,11 @@ class Simulator:
             blit=False,
             fargs=(lines)
         )
-        plt.show()
+        #plt.show()
+        # Set up formatting for the movie files
+        Writer = matplotlib.animation.writers['ffmpeg']
+        writer = Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
+        ani.save('im_fp.mp4', writer=writer)
 
     def get_flight_plan_duration(self, flight_plan):
         bot = self.get_bot_by_model(flight_plan.bot_model)

@@ -81,7 +81,7 @@ class Scheduler:
 
         with open("hello.json", 'w') as f:
             f.write(json.dumps(flight_plan.to_dict(), cls=Encoder))
-        raise Exception()
+        #raise Exception()
         # Flight plans don't consider absolute timings, so here will will add some approximates
         self.approximate_timings(flight_plan, launch_time)
 

@@ -52,8 +52,8 @@ We consider this as a two-third defined flight plan as it contains payload waypo
 
 Note the bot model has been defined as part of the flight plan, because the flight plan is defined for a given payload, and we assume certain payloads will require certain bot models.
 
-This simulation shows the energy deficit for this flight plan:
-GIF TIME
+The simulation below shows the energy deficit for this flight plan:
+![Dynamic Demo](demo/demo_2_fast.gif)
 
 To make this into fully defined flight plan, we need to consider the energy deficit, and then determine the solution.
 Practically, we do this by considering the following variables:

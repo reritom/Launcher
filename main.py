@@ -20,6 +20,9 @@ when = datetime.datetime.now() + datetime.timedelta(days=1)
 schedule = scheduler.determine_schedule_from_launch_time(flight_plan, when)
 
 simulator = Simulator(bots=bots)
-#simulator.simulate_flight_plan(flight_plan)
-simulator.simulate_schedule(schedule)
+
+unmodified_flight_plan = FlightPlan.from_file("./examples/flight_plan_2.json")
+scheduler.add_positions_to_action_waypoints(unmodified_flight_plan)
+simulator.simulate_flight_plan(unmodified_flight_plan)
+#simulator.simulate_schedule(schedule)
 #print(flight_plan.to_dict())
