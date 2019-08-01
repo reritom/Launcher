@@ -7,7 +7,7 @@ from .action_waypoint import ActionWaypoint
 class TestFlightPlan(unittest.TestCase):
     def test_flight_plan_to_dict(self):
         waypoints = [
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,0],
                 'to':[10,10,10]
             }),
@@ -15,7 +15,7 @@ class TestFlightPlan(unittest.TestCase):
                 action="TestAction",
                 duration=10
             ),
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [10,10,10],
                 'to':[0,0,0]
             })
@@ -33,7 +33,7 @@ class TestFlightPlan(unittest.TestCase):
            'starting_position':[0,0,0],
            'waypoints':[
               {
-                 'cartesian_positions':{
+                 'positions':{
                     'from':[0,0,0],
                     'to':[10,10,10],
                  },
@@ -47,7 +47,7 @@ class TestFlightPlan(unittest.TestCase):
                  'type':'action'
               },
               {
-                 'cartesian_positions':{
+                 'positions':{
                     'from':[10,10,10],
                     'to':[0,0,0],
                  },
@@ -71,7 +71,7 @@ class TestFlightPlan(unittest.TestCase):
         # This is tested because there are internal values which need to be ignored, like uuids
 
         waypoints_1 = [
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,0],
                 'to':[10,10,10]
             }),
@@ -79,14 +79,14 @@ class TestFlightPlan(unittest.TestCase):
                 action="TestAction",
                 duration=10
             ),
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [10,10,10],
                 'to':[0,0,0]
             })
         ]
 
         waypoints_2 = [
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,0],
                 'to':[10,10,10]
             }),
@@ -94,7 +94,7 @@ class TestFlightPlan(unittest.TestCase):
                 action="TestAction",
                 duration=10
             ),
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [10,10,10],
                 'to':[0,0,0]
             })
@@ -116,9 +116,9 @@ class TestFlightPlan(unittest.TestCase):
 
     def test_flight_plan_equals_ko_invalid_type(self):
         # This test makes sure that comparing a flight plan to another type returns false
-        
+
         waypoints = [
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,0],
                 'to':[10,10,10]
             }),
@@ -126,7 +126,7 @@ class TestFlightPlan(unittest.TestCase):
                 action="TestAction",
                 duration=10
             ),
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [10,10,10],
                 'to':[0,0,0]
             })

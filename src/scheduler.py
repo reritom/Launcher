@@ -312,16 +312,16 @@ class Scheduler:
 
                         # Create the second leg
                         new_waypoint = LegWaypoint(
-                            cartesian_positions={
+                            positions={
                                 'from': split_position,
-                                'to': waypoint.cartesian_positions['to']
+                                'to': waypoint.positions['to']
                             }
                         )
 
                         flight_plan.waypoints.insert(index + 2, new_waypoint)
 
                         # Turn the leg into just the first leg
-                        waypoint.cartesian_positions['to'] = split_position
+                        waypoint.positions['to'] = split_position
                         #print("Breaking from leg overshoot")
                         break
 
@@ -369,7 +369,7 @@ class Scheduler:
             # These are the base waypoints, we will copy these for each type of inventory
             waypoints = [
                 LegWaypoint(
-                    cartesian_positions={
+                    positions={
                         'from': tower.position,
                         'to': waypoint.position
                     }
@@ -384,7 +384,7 @@ class Scheduler:
                     duration=self.refuel_duration
                 ),
                 LegWaypoint(
-                    cartesian_positions={
+                    positions={
                         'from': waypoint.position,
                         'to': tower.position
                     }
@@ -561,16 +561,16 @@ class Scheduler:
 
         # Create the second leg
         new_waypoint = LegWaypoint(
-            cartesian_positions={
+            positions={
                 'from': split_position,
-                'to': leg_waypoint.cartesian_positions['to']
+                'to': leg_waypoint.positions['to']
             }
         )
 
         flight_plan.waypoints.insert(leg_index + 2, new_waypoint)
 
         # Turn the leg into just the first leg
-        leg_waypoint.cartesian_positions['to'] = split_position
+        leg_waypoint.positions['to'] = split_position
 
         print("After adding pre-giving refuel waypoint")
         print(flight_plan.to_dict())

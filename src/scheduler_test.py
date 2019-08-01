@@ -32,11 +32,11 @@ class TestScheduler(unittest.TestCase):
         ]
 
         waypoints = [
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,0],
                 'to': [0,0,1000]
             }),
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [1000,0,0],
                 'to': [0,0,0]
             })
@@ -88,7 +88,7 @@ class TestScheduler(unittest.TestCase):
         ]
 
         waypoints = [
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,0],
                 'to': [0,0,1000]
             })
@@ -139,7 +139,7 @@ class TestScheduler(unittest.TestCase):
         ]
 
         waypoints = [
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,0],
                 'to': [0,0,1000]
             })
@@ -184,7 +184,7 @@ class TestScheduler(unittest.TestCase):
         ]
 
         waypoints = [
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,0],
                 'to': [0,0,10]
             }),
@@ -196,7 +196,7 @@ class TestScheduler(unittest.TestCase):
                 action="giving_recharge",
                 duration=10
             ),
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,5],
                 'to': [0,0,0]
             })
@@ -264,7 +264,7 @@ class TestScheduler(unittest.TestCase):
         ]
 
         waypoints = [
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,0],
                 'to': [0,0,10]
             }),
@@ -277,7 +277,7 @@ class TestScheduler(unittest.TestCase):
                 duration=10,
                 id="critical"
             ),
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,5],
                 'to': [0,0,0]
             })
@@ -351,7 +351,7 @@ class TestScheduler(unittest.TestCase):
         ]
 
         waypoints = [
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,0],
                 'to': [0,0,1000]
             })
@@ -382,7 +382,7 @@ class TestScheduler(unittest.TestCase):
         )
 
         expected_waypoints = [
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,0],
                 'to': [0,0,200]
             }),
@@ -390,7 +390,7 @@ class TestScheduler(unittest.TestCase):
                 action="being_recharged",
                 duration=100
             ),
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,200],
                 'to': [0,0,400]
             }),
@@ -398,7 +398,7 @@ class TestScheduler(unittest.TestCase):
                 action="being_recharged",
                 duration=100
             ),
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,400],
                 'to': [0,0,600]
             }),
@@ -406,7 +406,7 @@ class TestScheduler(unittest.TestCase):
                 action="being_recharged",
                 duration=100
             ),
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,600],
                 'to': [0,0,800]
             }),
@@ -414,7 +414,7 @@ class TestScheduler(unittest.TestCase):
                 action="being_recharged",
                 duration=100
             ),
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,800],
                 'to': [0,0,1000]
             }),
@@ -447,7 +447,7 @@ class TestScheduler(unittest.TestCase):
         ]
 
         waypoints = [
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,0],
                 'to': [0,0,1000]
             }),
@@ -455,7 +455,7 @@ class TestScheduler(unittest.TestCase):
                 action="payload",
                 duration=500
             ),
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,1000],
                 'to': [0,0,0]
             })
@@ -486,7 +486,7 @@ class TestScheduler(unittest.TestCase):
         )
 
         expected_waypoints = [
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,0],
                 'to': [0,0,470]
             }),
@@ -494,7 +494,7 @@ class TestScheduler(unittest.TestCase):
                 action="being_recharged",
                 duration=10
             ),
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,470],
                 'to': [0,0,940]
             }),
@@ -502,7 +502,7 @@ class TestScheduler(unittest.TestCase):
                 action="being_recharged",
                 duration=10
             ),
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,940],
                 'to': [0,0,1000]
             }),
@@ -518,7 +518,7 @@ class TestScheduler(unittest.TestCase):
                 action="payload",
                 duration=90
             ),
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,1000],
                 'to': [0,0,620]
             }),
@@ -526,7 +526,7 @@ class TestScheduler(unittest.TestCase):
                 action="being_recharged",
                 duration=10
             ),
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,620],
                 'to': [0,0,150]
             }),
@@ -534,7 +534,7 @@ class TestScheduler(unittest.TestCase):
                 action="being_recharged",
                 duration=10
             ),
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,150],
                 'to': [0,0,0]
             }),
@@ -566,7 +566,7 @@ class TestScheduler(unittest.TestCase):
         ]
 
         waypoints = [
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,0],
                 'to': [0,0,500]
             }),
@@ -578,7 +578,7 @@ class TestScheduler(unittest.TestCase):
                 action="giving_recharge",
                 duration=100
             ),
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,500],
                 'to': [0,0,0]
             })
@@ -609,7 +609,7 @@ class TestScheduler(unittest.TestCase):
         )
 
         expected_waypoints = [
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,0],
                 'to': [0,0,250]
             }),
@@ -617,7 +617,7 @@ class TestScheduler(unittest.TestCase):
                 action="being_recharged",
                 duration=100
             ),
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,250],
                 'to': [0,0,500]
             }),
@@ -633,7 +633,7 @@ class TestScheduler(unittest.TestCase):
                 action="giving_recharge",
                 duration=100
             ),
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,500],
                 'to': [0,0,450]
             }),
@@ -641,7 +641,7 @@ class TestScheduler(unittest.TestCase):
                 action="being_recharged",
                 duration=100
             ),
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,450],
                 'to': [0,0,200]
             }),
@@ -649,7 +649,7 @@ class TestScheduler(unittest.TestCase):
                 action="being_recharged",
                 duration=100
             ),
-            LegWaypoint(cartesian_positions={
+            LegWaypoint(positions={
                 'from': [0,0,200],
                 'to': [0,0,0]
             }),

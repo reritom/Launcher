@@ -1,0 +1,54 @@
+{
+  "partial_flight_plans": [
+    {
+      "bot_model": "GypsyMarkI",
+      "critical_waypoints": [
+        {
+          "position": [0, 5000, 5000],
+          "duration": 5000
+          "action": "payload"
+        }
+      ]
+    },
+    {
+      "bot_model": "GypsyMarkI",
+      "critical_waypoints": [
+        {
+          "position": [0, 6000, 5000],
+          "duration": 5000
+          "action": "payload"
+        }
+      ]
+    },
+    {
+      "bot_model": "GypsyMarkI",
+      "critical_waypoints": [
+        {
+          "position": [0, 5000, 6000],
+          "duration": 5000
+          "action": "payload"
+        }
+      ]
+    },
+    {
+      "bot_model": "GypsyMarkI",
+      "critical_waypoints": [
+        {
+          "position": [0, 6000, 6000],
+          "duration": 5000
+          "action": "payload"
+        }
+      ]
+    },
+    {
+      "bot_model": "GypsyMarkI",
+      "critical_waypoints": [
+        {
+          "position": [0, 5500, 5500],
+          "duration": 5000
+          "action": "payload"
+        }
+      ]
+    },
+  ]
+}

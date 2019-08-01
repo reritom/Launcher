@@ -5,7 +5,7 @@
    "waypoints":[
       {
          "type":"leg",
-         "cartesian_positions":{
+         "positions":{
             "from":[0, 0, 0],
             "to":[5000, 5000, 5000]
          }
@@ -17,7 +17,7 @@
       },
       {
          "type":"leg",
-         "cartesian_positions":{
+         "positions":{
             "from":[5000, 5000, 5000],
             "to":[10000, 10000, 10000]
          }
@@ -29,7 +29,7 @@
       },
       {
          "type":"leg",
-         "cartesian_positions":{
+         "positions":{
             "from":[10000, 10000, 10000],
             "to":[0, 0, 0]
          }
