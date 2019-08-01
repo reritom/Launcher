@@ -25,14 +25,22 @@ class FlightPlan:
                 for waypoint_dict in flight_plan_dict.get('waypoints', [])
                 ],
             bot_model=flight_plan_dict['bot_model'],
-            starting_position=flight_plan_dict['starting_position'],
+            starting_tower=flight_plan_dict['starting_tower'],
+            finishing_tower=flight_plan_dict['finishing_tower'],
             id=flight_plan_dict.get('id')
         )
 
-    def __init__(self, waypoints: list = None, bot_model: str = None, starting_position: list = None, id: str = None):
+    def __init__(self,
+        waypoints: list = None,
+        bot_model: str = None,
+        id: str = None,
+        starting_tower: str = None,
+        finishing_tower: str = None
+    ):
         self.waypoints = waypoints if waypoints else []
         self.bot_model = bot_model if bot_model else None
-        self.starting_position = starting_position if starting_position else [0, 0, 0]
+        self.starting_tower = starting_tower
+        self.finishing_tower = finishing_tower
         self.id = id if id else str(uuid.uuid4())
 
     def add_waypoint(self, waypoint: Waypoint):
@@ -46,12 +54,6 @@ class FlightPlan:
         and specification. The bot here is used when calculating schedules and timings
         """
         self.bot_model = bot_model
-
-    def set_starting_position(self, starting_position: list):
-        """
-        The location of the tower the flight plan starts from
-        """
-        self.starting_position = starting_position
 
     def is_definite(self) -> bool:
         """
@@ -132,7 +134,8 @@ class FlightPlan:
                 in self.waypoints
             ],
             'bot_model': self.bot_model,
-            'starting_position': self.starting_position,
+            'starting_tower': self.starting_tower,
+            'finishing_tower': self.finishing_tower,
             'id': self.id
         }
 
@@ -150,11 +153,15 @@ class FlightPlan:
             if not waypoint == other.waypoints[index]:
                 return False
 
-        print("Enumerations match")
+        print("Waypoints match")
+        print(self.bot_model, other.bot_model)
+        print(self.starting_tower, other.starting_tower)
+        print(self.finishing_tower, other.finishing_tower)
 
         return (
             self.bot_model == other.bot_model
-            and self.starting_position == other.starting_position
+            and self.starting_tower == other.starting_tower
+            and self.finishing_tower == other.finishing_tower
         )
 
     def copy(self) -> 'FlightPlan':
@@ -165,7 +172,8 @@ class FlightPlan:
                 for waypoint in self.waypoints
             ],
             bot_model=self.bot_model,
-            starting_position=[i for i in self.starting_position]
+            starting_tower=self.starting_tower,
+            finishing_tower=self.finishing_tower
         )
 
     @property

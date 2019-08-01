@@ -37,7 +37,7 @@ class TestScheduler(unittest.TestCase):
                 'to': [0,0,1000]
             }),
             LegWaypoint(positions={
-                'from': [1000,0,0],
+                'from': [0,0,1000],
                 'to': [0,0,0]
             })
         ]
@@ -45,11 +45,13 @@ class TestScheduler(unittest.TestCase):
         flight_plan = FlightPlan(
             waypoints=waypoints,
             bot_model="CarrierI",
-            starting_position=[0,0,0]
+            starting_tower='TowerOne',
+            finishing_tower='TowerOne',
         )
 
         towers = [
             Tower(
+                id='TowerOne',
                 inventory=[{'model': "TestI", 'quantity': 5}],
                 position=[0,0,0],
                 parallel_launchers=1,
@@ -97,11 +99,13 @@ class TestScheduler(unittest.TestCase):
         flight_plan = FlightPlan(
             waypoints=waypoints,
             bot_model="This doesnt exist",
-            starting_position=[0,0,0]
+            starting_tower='TowerOne',
+            finishing_tower='TowerOne',
         )
 
         towers = [
             Tower(
+                id="TowerOne",
                 inventory=[{'model': "TestI", 'quantity': 5}],
                 position=[0,0,0],
                 parallel_launchers=1,
@@ -148,11 +152,13 @@ class TestScheduler(unittest.TestCase):
         flight_plan = FlightPlan(
             waypoints=waypoints,
             bot_model="This doesnt exist",
-            starting_position=[0,0,0]
+            starting_tower='TowerOne',
+            finishing_tower='TowerOne',
         )
 
         towers = [
             Tower(
+                id='TowerOne',
                 inventory=[{'model': "TestI", 'quantity': 5}],
                 position=[0,0,0],
                 parallel_launchers=1,
@@ -205,11 +211,13 @@ class TestScheduler(unittest.TestCase):
         flight_plan = FlightPlan(
             waypoints=waypoints,
             bot_model="CarrierI",
-            starting_position=[0,0,0]
+            starting_tower='TowerOne',
+            finishing_tower='TowerOne',
         )
 
         towers = [
             Tower(
+                id='TowerOne',
                 inventory=[{'model': "CarrierI", 'quantity': 5}],
                 position=[0,0,0],
                 parallel_launchers=1,
@@ -286,11 +294,13 @@ class TestScheduler(unittest.TestCase):
         flight_plan = FlightPlan(
             waypoints=waypoints,
             bot_model="CarrierI",
-            starting_position=[0,0,0]
+            starting_tower='TowerOne',
+            finishing_tower='TowerOne',
         )
 
         towers = [
             Tower(
+                id='TowerOne',
                 inventory=[{'model': "CarrierI", 'quantity': 5}],
                 position=[0,0,0],
                 parallel_launchers=1,
@@ -360,13 +370,23 @@ class TestScheduler(unittest.TestCase):
         flight_plan = FlightPlan(
             waypoints=waypoints,
             bot_model="CarrierI",
-            starting_position=[0,0,0]
+            starting_tower='TowerOne',
+            finishing_tower='TowerTwo',
         )
 
         towers = [
             Tower(
+                id='TowerOne',
                 inventory=[{'model': "TestI", 'quantity': 5}],
                 position=[0,0,0],
+                parallel_launchers=1,
+                parallel_landers=1,
+                launch_time=1
+            ),
+            Tower(
+                id='TowerTwo',
+                inventory=[{'model': "TestI", 'quantity': 5}],
+                position=[0,0,1000],
                 parallel_launchers=1,
                 parallel_landers=1,
                 launch_time=1
@@ -423,7 +443,8 @@ class TestScheduler(unittest.TestCase):
         expected_flight_plan = FlightPlan(
             waypoints=expected_waypoints,
             bot_model="CarrierI",
-            starting_position=[0,0,0]
+            starting_tower='TowerOne',
+            finishing_tower='TowerTwo',
         )
 
         # The flight plan has only one leg, so we expect this leg to be split
@@ -464,11 +485,13 @@ class TestScheduler(unittest.TestCase):
         flight_plan = FlightPlan(
             waypoints=waypoints,
             bot_model="CarrierI",
-            starting_position=[0,0,0]
+            starting_tower='TowerOne',
+            finishing_tower='TowerOne',
         )
 
         towers = [
             Tower(
+                id='TowerOne',
                 inventory=[{'model': "TestI", 'quantity': 5}],
                 position=[0,0,0],
                 parallel_launchers=1,
@@ -543,7 +566,8 @@ class TestScheduler(unittest.TestCase):
         expected_flight_plan = FlightPlan(
             waypoints=expected_waypoints,
             bot_model="CarrierI",
-            starting_position=[0,0,0]
+            starting_tower='TowerOne',
+            finishing_tower='TowerOne',
         )
 
         scheduler.recalculate_flight_plan(flight_plan)
@@ -587,11 +611,13 @@ class TestScheduler(unittest.TestCase):
         flight_plan = FlightPlan(
             waypoints=waypoints,
             bot_model="CarrierI",
-            starting_position=[0,0,0]
+            starting_tower='TowerOne',
+            finishing_tower='TowerOne',
         )
 
         towers = [
             Tower(
+                id='TowerOne',
                 inventory=[{'model': "TestI", 'quantity': 5}],
                 position=[0,0,0],
                 parallel_launchers=1,
@@ -658,15 +684,12 @@ class TestScheduler(unittest.TestCase):
         expected_flight_plan = FlightPlan(
             waypoints=expected_waypoints,
             bot_model="CarrierI",
-            starting_position=[0,0,0]
+            starting_tower='TowerOne',
+            finishing_tower='TowerOne'
         )
 
         # The flight plan has only one leg, so we expect this leg to be split
         scheduler.recalculate_flight_plan(flight_plan)
-
-        with open('hey.json', 'w') as f:
-            f.write(json.dumps(flight_plan.to_dict()))
-
         self.assertEqual(flight_plan, expected_flight_plan)
 
     def test_get_nearest_towers_to_waypoint(self):
@@ -695,6 +718,7 @@ class TestScheduler(unittest.TestCase):
 
         towers = [
             Tower(
+                id='TowerOne',
                 inventory=[{'model': "TestI", 'quantity': 5}],
                 position=[0,0,0],
                 parallel_launchers=1,
@@ -702,6 +726,7 @@ class TestScheduler(unittest.TestCase):
                 launch_time=1
             ),
             Tower(
+                id='TowerTwo',
                 inventory=[{'model': "TestI", 'quantity': 5}],
                 position=[30,30,30],
                 parallel_launchers=1,
@@ -709,6 +734,7 @@ class TestScheduler(unittest.TestCase):
                 launch_time=1
             ),
             Tower(
+                id='TowerThree',
                 inventory=[{'model': "TestI", 'quantity': 5}],
                 position=[110,110,110],
                 parallel_launchers=1,

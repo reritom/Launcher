@@ -114,7 +114,11 @@ class Scheduler:
         assert flight_plan.bot_model in [bot.model for bot in self.bots], "Unknown bot model"
 
         # Make sure the flight plan starts at a tower
-        assert flight_plan.starting_position == flight_plan.waypoints[0].from_pos, "Starting point doesnt match first waypoint"
+        assert flight_plan.starting_tower in [tower.id for tower in self.towers]
+        assert flight_plan.finishing_tower in [tower.id for tower in self.towers]
+        assert self.get_tower_by_id(flight_plan.starting_tower).position == flight_plan.waypoints[0].from_pos, "Starting point doesnt match first waypoint"
+        assert self.get_tower_by_id(flight_plan.finishing_tower).position == flight_plan.waypoints[-1].to_pos, "Starting point doesnt match first waypoint"
+
         assert flight_plan.waypoints[0].from_pos in [tower.position for tower in self.towers], "Starting waypoint isn't located on tower"
 
         # The end of the final leg needs to be a tower location
@@ -345,7 +349,7 @@ class Scheduler:
                     try:
                         previous_waypoint = flight_plan.waypoints[index - i]
                     except IndexError as e:
-                        waypoint.position = flight_plan.starting_position
+                        waypoint.position = self.get_tower_by_id(flight_plan.starting_tower).position
                         break
 
                     if previous_waypoint.is_leg:
@@ -401,7 +405,8 @@ class Scheduler:
                             for waypoint in waypoints
                             ],
                         bot_model=bot_model,
-                        starting_position=tower.position
+                        starting_tower=tower.id,
+                        finishing_tower=tower.id
                     )
                     assert self.validate_flight_plan(flight_plan)
                     dummy_flight_plans.append(flight_plan)
@@ -510,6 +515,14 @@ class Scheduler:
         for bot in self.bots:
             if bot.model == model:
                 return bot
+
+    def get_tower_by_id(self, id: str) -> Optional[Tower]:
+        """
+        Get the tower for the given id
+        """
+        for tower in self.towers:
+            if tower.id == id:
+                return tower
 
     def add_pre_giving_refuel_waypoint(self, flight_plan: FlightPlan):
         """

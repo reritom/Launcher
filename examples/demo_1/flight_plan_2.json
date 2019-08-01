@@ -2,6 +2,8 @@
    "id": "main",
    "bot_model": "GypsyMarkI",
    "starting_position":[0, 0, 0],
+   "starting_tower": "TowerZero",
+   "finishing_tower": "TowerZero",
    "waypoints":[
       {
          "type":"leg",
