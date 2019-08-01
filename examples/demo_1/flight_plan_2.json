@@ -1,5 +1,5 @@
 {
-   "id": "flight_plan_example_2",
+   "id": "main",
    "bot_model": "GypsyMarkI",
    "starting_position":[0, 0, 0],
    "waypoints":[

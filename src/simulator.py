@@ -41,7 +41,7 @@ class Heatmap:
     0.90: (62, 158, 198),
     0.95: (52, 135, 190),
     1.00: (44, 124, 184)
-}
+    }
 
     @staticmethod
     def _get_nearest_increment(value):
@@ -57,7 +57,6 @@ class Heatmap:
 
     @staticmethod
     def get_reduced_rgb_colour(value):
-        print(f"Value is {value}")
         rgb = Heatmap.get_rgb_colour(value)
         return tuple(i/256 for i in rgb)
 
@@ -106,7 +105,7 @@ class Simulator:
 
         return ranges
 
-    def simulate_schedule(self, schedule):
+    def simulate_schedule(self, schedule, save_path=None):
         # Determine the max and mins for each axis
         ranges = self.determine_schedule_ranges(schedule)
 
@@ -117,7 +116,6 @@ class Simulator:
 
         # Get the start time of the schedule to determine the offsets
         schedule_start_time = schedule.start_time # Computed, so we store it
-        print(f"Schedule starts at {schedule_start_time} and ends at {schedule.end_time}")
 
         # Simulation duration in seconds
         simulation_duration = int(schedule.duration)
@@ -144,8 +142,6 @@ class Simulator:
                     try:
                         data = dataframe.iloc[dataframe_index]
                     except Exception as e:
-                        print(f"For FP {index} trying to access {dataframe_index}")
-                        print(f"in {dataframe}")
                         print(e)
                         continue
 
@@ -197,8 +193,6 @@ class Simulator:
 
             flight_plan_dot_lines.append((dot_line, recharge_line))
 
-        print(f"Simulation duration {simulation_duration}")
-
         ani = matplotlib.animation.FuncAnimation(
             fig,
             update_graph,
@@ -208,16 +202,15 @@ class Simulator:
             fargs=(flight_plan_dot_lines)
         )
 
-        plt.show()
-        """
-        # Set up formatting for the movie files
-        Writer = matplotlib.animation.writers['ffmpeg']
-        writer = Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
-        ani.save('im.mp4', writer=writer)
-        """
+        if save_path:
+            # Set up formatting for the movie files
+            Writer = matplotlib.animation.writers['ffmpeg']
+            writer = Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
+            ani.save(save_path, writer=writer)
+        else:
+            plt.show()
 
-
-    def simulate_flight_plan(self, flight_plan):
+    def simulate_flight_plan(self, flight_plan, save_path=None):
         # Determine the max and mins for each axis
         ranges = self.determine_flight_plan_ranges(flight_plan)
         #print(f"Ranges are {ranges}")
@@ -236,7 +229,6 @@ class Simulator:
             data = flight_plan_dataframe.iloc[num]
             lines[0].set_data(data.x, data.y)
             lines[0].set_3d_properties(data.z)
-            print(data.remaining_fuel)
             lines[0].set_color(
                 Heatmap.get_reduced_rgb_colour(data.remaining_fuel)
                 if data.remaining_fuel > 0
@@ -252,7 +244,7 @@ class Simulator:
             return title, lines,
 
         data = flight_plan_dataframe.iloc[0]
-        print(Heatmap.get_reduced_rgb_colour(data.remaining_fuel))
+        #print(Heatmap.get_reduced_rgb_colour(data.remaining_fuel))
 
         # Bot point
         line, = ax.plot(
@@ -276,11 +268,14 @@ class Simulator:
             blit=False,
             fargs=(lines)
         )
-        #plt.show()
-        # Set up formatting for the movie files
-        Writer = matplotlib.animation.writers['ffmpeg']
-        writer = Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
-        ani.save('im_fp.mp4', writer=writer)
+
+        if save_path:
+            # Set up formatting for the movie files
+            Writer = matplotlib.animation.writers['ffmpeg']
+            writer = Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
+            ani.save(save_path, writer=writer)
+        else:
+            plt.show()
 
     def get_flight_plan_duration(self, flight_plan):
         bot = self.get_bot_by_model(flight_plan.bot_model)
@@ -331,7 +326,7 @@ class Simulator:
                     and flight_plan.waypoints[current_waypoint_index - 1].is_action
                     and flight_plan.waypoints[current_waypoint_index - 1].is_being_recharged
                 ):
-                    print("Previous waypoint is being recharged")
+                    #print("Previous waypoint is being recharged")
                     remaining_fuel = bot.flight_time
                 else:
                     remaining_fuel = remaining_fuel - 1
@@ -340,9 +335,9 @@ class Simulator:
                 print(e)
                 pass
             finally:
-                print(f"Remaining fuel {remaining_fuel}, {bot.flight_time}")
+                #print(f"Remaining fuel {remaining_fuel}, {bot.flight_time}")
                 fuel = remaining_fuel/bot.flight_time
-                print(fuel)
+                #print(fuel)
                 assert fuel <= 1
                 fuel_percent.append(fuel)
 
