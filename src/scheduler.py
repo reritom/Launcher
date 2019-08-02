@@ -1,6 +1,6 @@
 import math as maths
 from typing import List, Optional, Dict
-import json
+import json, datetime, random
 
 from .schedule import Schedule
 from .flight_plan import FlightPlan
@@ -9,9 +9,8 @@ from .waypoint import Waypoint
 from .leg_waypoint import LegWaypoint
 from .action_waypoint import ActionWaypoint
 from .bot import Bot
-
 from .tools import distance_between, find_middle_position_by_ratio, Encoder
-import datetime
+
 
 class Scheduler:
     def __init__(self, towers: List[Tower], bots: List[Bot], refuel_duration: int, remaining_flight_time_at_refuel: int, refuel_anticipation_buffer: str):
@@ -469,8 +468,14 @@ class Scheduler:
                 for potential_flight_plan in dummy_potential_flight_plans
             ]
 
-            priority_flight_plan_index = flight_plan_waypoint_counts.index(min(flight_plan_waypoint_counts))
-            priority_flight_plan = dummy_potential_flight_plans[priority_flight_plan_index]
+            minimum_waypoints = min(flight_plan_waypoint_counts)
+            priority_waypoints = [
+                potential_flight_plan
+                for potential_flight_plan in dummy_potential_flight_plans
+                if len(potential_flight_plan.waypoints) == minimum_waypoints
+            ]
+
+            priority_flight_plan = random.choice(priority_waypoints)
             print(f"Priority flight plan requires {priority_flight_plan.refuel_waypoint_count} refuel points")
             print(priority_flight_plan.to_dict())
 
@@ -600,4 +605,7 @@ class Scheduler:
         """
         For a given schedule in progress, create flight plans to handle return to base for all active flights
         """
+        pass
+
+    def determine_schedule_for_partial_flight_plans_orchestration(self, partial_flight_plans: List) -> Schedule:
         pass

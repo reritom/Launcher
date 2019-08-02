@@ -1,5 +1,3 @@
-- Flight plans using start tower and end tower
-- Allow flights to end at other towers
 - Refuel during payload action should be parallel
 - Towers to be renamed to Ports
 - Schedules to check if flight plans are available

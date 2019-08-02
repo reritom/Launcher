@@ -21,6 +21,19 @@ class Tower:
         return cls.from_dict(tower_dict)
 
     @classmethod
+    def from_catalogue_file(cls, file_path: str) -> List['Tower']:
+        """
+        A catalogue file is a file containing a list of tower definitions
+        """
+        with open(file_path, 'r') as f:
+            catalogue = json.load(f)
+
+        return [
+            cls.from_dict(tower_dict)
+            for tower_dict in catalogue
+        ]
+
+    @classmethod
     def from_dict(cls, tower_dict) -> 'Tower':
         return cls(
             inventory=tower_dict['inventory'],
