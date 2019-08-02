@@ -237,7 +237,7 @@ class Scheduler:
                                 flight_plan.waypoints.insert(index, new_waypoint)
                             else:
                                 # TODO MAKE THIS VARIABLE PART OF THE FLIGHT PLAN
-                                refuel_in_parallel_with_payload = True
+                                refuel_in_parallel_with_payload = False
 
                                 if refuel_in_parallel_with_payload and waypoint.is_payload_action:
                                     # We don't need to add additional time to the action waypoint unless necessary
@@ -444,9 +444,9 @@ class Scheduler:
                 print(f"Flight plan copy has {len(flight_plan.waypoints)} waypoints")
                 for waypoint in flight_plan_copy.waypoints:
                     if waypoint.is_action and waypoint.is_being_recharged:
-                        print("This one is being recharged")
+                        #print("This one is being recharged")
                         if waypoint.position and waypoint.position == giving_refuel_waypoint.position:
-                            print("And being recharged at the refuel location")
+                            #print("And being recharged at the refuel location")
                             # We will inject a refuel point into the original potential flight plan to avoid this case
                             self.add_pre_giving_refuel_waypoint(potential_flight_plan)
                             assert self.validate_flight_plan(potential_flight_plan)
@@ -467,7 +467,11 @@ class Scheduler:
                 len(potential_flight_plan.waypoints)
                 for potential_flight_plan in dummy_potential_flight_plans
             ]
-
+            print(f"Waypoint counts are {flight_plan_waypoint_counts}")
+            """
+            priority_flight_plan_index = flight_plan_waypoint_counts.index(min(flight_plan_waypoint_counts))
+            priority_flight_plan = dummy_potential_flight_plans[priority_flight_plan_index]
+            """
             minimum_waypoints = min(flight_plan_waypoint_counts)
             priority_waypoints = [
                 potential_flight_plan
@@ -476,8 +480,10 @@ class Scheduler:
             ]
 
             priority_flight_plan = random.choice(priority_waypoints)
-            print(f"Priority flight plan requires {priority_flight_plan.refuel_waypoint_count} refuel points")
-            print(priority_flight_plan.to_dict())
+
+
+            #print(f"Priority flight plan requires {priority_flight_plan.refuel_waypoint_count} refuel points")
+            #print(priority_flight_plan.to_dict())
 
             # This needs to be monitored to limit recursion
             calculated_flight_plans_per_waypoint_id[refuel_waypoint.id].append({
@@ -497,16 +503,18 @@ class Scheduler:
         """
         assert waypoint.is_action
         distances = []
+        print("Getting nearest towers")
 
         for tower in self.towers:
             distance = distance_between(waypoint.position, tower.position)
+            print(f"Distance between {waypoint.position} and {tower.id} at {tower.position} is {distance}")
             distances.append((distance, tower))
 
         # We then sort by distance and return a list of towers with the first being the closest
         distances.sort(key=lambda value: value[0])
-
+        print(f"Nearest is {distances[0][1].id}")
         if len(distances) >= 2:
-            assert distances[0] <= distances[1]
+            assert distances[0][0] <= distances[1][0]
 
         return [
             distance[1]
@@ -535,8 +543,8 @@ class Scheduler:
         """
         assert self.validate_flight_plan(flight_plan), "Invalid flight plan prior to adding pre-giving refuel waypoint"
         assert flight_plan.has_giving_recharge_waypoint
-        print("Before adding pre-giving refuel waypoint")
-        print(flight_plan.to_dict())
+        #print("Before adding pre-giving refuel waypoint")
+        #print(flight_plan.to_dict())
 
         # Find the GIVING_RECHARGE waypoint
         giving_recharge_index = flight_plan.giving_recharge_index
@@ -590,8 +598,8 @@ class Scheduler:
         # Turn the leg into just the first leg
         leg_waypoint.positions['to'] = split_position
 
-        print("After adding pre-giving refuel waypoint")
-        print(flight_plan.to_dict())
+        #print("After adding pre-giving refuel waypoint")
+        #print(flight_plan.to_dict())
         assert self.validate_flight_plan(flight_plan)
 
     def create_transit_schedule(self):

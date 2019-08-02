@@ -20,6 +20,18 @@
          "type":"leg",
          "positions":{
             "from":[5000, 5000, 5000],
+            "to":[10000, 10000, 10000]
+         }
+      },
+      {
+         "type":"action",
+         "action":"payload",
+         "duration":2000
+      },
+      {
+         "type":"leg",
+         "positions":{
+            "from":[10000, 10000, 10000],
             "to":[0, 0, 0]
          }
       }

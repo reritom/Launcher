@@ -8,10 +8,9 @@ from src.tools import Encoder
 import datetime, sys, os, json
 
 """
-This demo creates the raw files for showing the evolution of a single energy deficient flight plan into
-a plan with refueler points and refueler sub plans
+This demo shows a schedule for a bot being refueled by multiple towers
 """
-DEMO_NUMBER = 1
+DEMO_NUMBER = 3
 
 """ Common """
 towers = Tower.from_catalogue_file(f"./examples/demo_{DEMO_NUMBER}/towers_1.json")
@@ -29,28 +28,9 @@ if not f'demo_{DEMO_NUMBER}' in os.listdir(os.path.join(dir, 'demo')):
 if not 'raw' in os.listdir(os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}')):
     os.mkdir(os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw'))
 
-""" 1) a) Section for showing flight plan running out of fuel """
+
+""" 1) a) Section showing the schedule """
 print("Part 1")
-flight_plan = FlightPlan.from_file(f"./examples/demo_{DEMO_NUMBER}/flight_plan_1.json")
-scheduler.add_positions_to_action_waypoints(flight_plan)
-simulator.simulate_flight_plan(flight_plan, save_path=os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', 'raw_flight_plan.mp4'))
-
-with open(os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', 'raw_flight_plan.json'), 'w') as f:
-    f.write(json.dumps(flight_plan.to_dict(), cls=Encoder))
-
-
-""" 1) b) Section showing the same flight plan but with refuel points added (without schedule)"""
-print("Part 2")
-flight_plan = FlightPlan.from_file(f"./examples/demo_{DEMO_NUMBER}/flight_plan_1.json")
-schedule = scheduler.determine_schedule_from_launch_time(flight_plan, when)
-simulator.simulate_flight_plan(flight_plan, save_path=os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', 'calculated_flight_plan.mp4'))
-
-with open(os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', 'calculated_flight_plan.json'), 'w') as f:
-    f.write(json.dumps(flight_plan.to_dict(), cls=Encoder))
-
-
-""" 1) c) Section showing the schedule for the refuelers """
-print("Part 3")
 flight_plan = FlightPlan.from_file(f"./examples/demo_{DEMO_NUMBER}/flight_plan_1.json")
 schedule = scheduler.determine_schedule_from_launch_time(flight_plan, when)
 simulator.simulate_schedule(schedule, save_path=os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', f'schedule.mp4'))

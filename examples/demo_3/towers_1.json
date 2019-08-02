@@ -1,0 +1,28 @@
+[
+  {
+    "id": "TowerZero",
+    "cartesian_position": [0, 0, 0],
+    "parallel_launchers": 1,
+    "parallel_landers": 1,
+    "launch_time": 60,
+    "inventory": [
+      {
+        "model": "RefuelerMarkI",
+        "quantity": 10
+      }
+    ]
+  },
+  {
+    "id": "TowerOne",
+    "cartesian_position": [15000, 15000, 0],
+    "parallel_launchers": 1,
+    "parallel_landers": 1,
+    "launch_time": 60,
+    "inventory": [
+      {
+        "model": "RefuelerMarkII",
+        "quantity": 5
+      }
+    ]
+  }
+]

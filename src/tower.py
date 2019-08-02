@@ -2,6 +2,7 @@ from .flight_plan import FlightPlan
 
 import datetime
 import json
+from typing import List
 
 class Tower:
     def __init__(self, id, inventory, position, parallel_launchers, parallel_landers, launch_time):

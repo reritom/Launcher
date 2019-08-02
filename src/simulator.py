@@ -61,8 +61,9 @@ class Heatmap:
         return tuple(i/256 for i in rgb)
 
 class Simulator:
-    def __init__(self, bots):
+    def __init__(self, bots, towers):
         self.bots = bots
+        self.towers = towers
 
     def get_bot_by_model(self, model: str) -> Optional[Bot]:
         """
@@ -193,11 +194,22 @@ class Simulator:
 
             flight_plan_dot_lines.append((dot_line, recharge_line))
 
+        # Plot the towers
+        for tower in self.towers:
+            tower_dot, = ax.plot(
+                [tower.position[0]],
+                [tower.position[1]],
+                tower.position[2],
+                linestyle="",
+                marker="x",
+                color='blue'
+            )
+
         ani = matplotlib.animation.FuncAnimation(
             fig,
             update_graph,
             simulation_duration,
-            interval=10,
+            interval=5 if not save_path else 1,
             blit=False,
             fargs=(flight_plan_dot_lines)
         )
@@ -245,6 +257,17 @@ class Simulator:
 
         data = flight_plan_dataframe.iloc[0]
         #print(Heatmap.get_reduced_rgb_colour(data.remaining_fuel))
+
+        # Plot the towers
+        for tower in self.towers:
+            tower_dot, = ax.plot(
+                [tower.position[0]],
+                [tower.position[1]],
+                tower.position[2],
+                linestyle="",
+                marker="x",
+                color='blue'
+            )
 
         # Bot point
         line, = ax.plot(
@@ -394,6 +417,14 @@ class Simulator:
                         value if value > axis[index][0] else axis[index][0],
                         value if value < axis[index][1] else axis[index][1]
                     ]
+
+        # Now look at the tower positions
+        for tower in self.towers:
+            for index, value in enumerate(tower.position):
+                axis[index] = [
+                    value if value > axis[index][0] else axis[index][0],
+                    value if value < axis[index][1] else axis[index][1]
+                ]
 
         return {
             'xmax': axis[0][0],
