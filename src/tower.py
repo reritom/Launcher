@@ -38,7 +38,7 @@ class Tower:
     def from_dict(cls, tower_dict) -> 'Tower':
         return cls(
             inventory=tower_dict['inventory'],
-            position=tower_dict['cartesian_position'],
+            position=tower_dict['position'],
             parallel_launchers=tower_dict['parallel_launchers'],
             parallel_landers=tower_dict['parallel_landers'],
             launch_time=tower_dict['launch_time'],

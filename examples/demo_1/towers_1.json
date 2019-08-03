@@ -1,10 +1,14 @@
 [
   {
     "id": "TowerZero",
-    "cartesian_position": [0, 0, 0],
+    "position": [0, 0, 0],
     "parallel_launchers": 1,
     "parallel_landers": 1,
     "launch_time": 60,
+    "landing_time": 60,
+    "ready_time": 60,
+    "bot_capacity": 10,
+    "payload_capacity": 10,
     "inventory": [
       {
         "model": "RefuelerMarkI",
