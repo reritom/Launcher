@@ -155,19 +155,23 @@ In this case, we have to consider the sourcing of the payload, the transit of th
 Representing a command like this in JSON is not as simple due to the open-endedness of the request. So instead this is implemented in the scheduler class directly.
 
 ### Example 1
-demo showing multiple towers
+Demo showing multiple towers
+
 ![Dynamic Demo](demo/demo_2/processed/schedule.gif)
 
 ### Example 2
-demo showing bots refuelling each other
+Demo showing bots refuelling each other
+
 ![Dynamic Demo](demo/demo_3/processed/schedule.gif)
 
 ### Example 3
-demo showing an orchestration of five bots holding a star shape 5km high, with refuel bots coming from multiple towers
+Demo showing an orchestration of five bots holding a star shape 5km high, with refuel bots coming from multiple towers.
+
 ![Dynamic Demo](demo/demo_4/processed/schedule.gif)
 
 ### Example 4
-demo showing an orchestration of one hundred bots holding a grid shape 5km high, with hundreds of refuel bots coming from multiple towers
+
+Demo showing an orchestration of one hundred bots holding a grid shape 5km high, with hundreds of refuel bots coming from multiple towers
 ![Dynamic Demo](demo/demo_5/processed/schedule.gif)
 
 # Core Logic
