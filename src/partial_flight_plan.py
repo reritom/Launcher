@@ -29,7 +29,7 @@ class PartialFlightPlan:
                 ActionWaypoint.from_dict(waypoint_dict)
                 if waypoint_dict['type'] == 'action'
                 else LegWaypoint.from_dict(waypoint_dict)
-                for waypoint_dict in partial_flight_plan_dict.get('waypoints', [])
+                for waypoint_dict in partial_flight_plan_dict.get('critical_waypoints', [])
                 ],
             bot_model=partial_flight_plan_dict['bot_model'],
             id=partial_flight_plan_dict.get('id')

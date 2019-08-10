@@ -1,0 +1,70 @@
+[
+  {
+    "id": "TowerZero",
+    "position": [0, 0, 0],
+    "parallel_launchers": 1,
+    "parallel_landers": 1,
+    "launch_time": 60,
+    "landing_time": 60,
+    "ready_time": 60,
+    "bot_capacity": 10,
+    "payload_capacity": 10,
+    "inventory": [
+      {
+        "model": "RefuelerMarkIII",
+        "quantity": 10
+      }
+    ]
+  },
+  {
+    "id": "TowerOne",
+    "position": [10000, 0, 0],
+    "parallel_launchers": 1,
+    "parallel_landers": 1,
+    "launch_time": 60,
+    "landing_time": 60,
+    "ready_time": 60,
+    "bot_capacity": 10,
+    "payload_capacity": 10,
+    "inventory": [
+      {
+        "model": "RefuelerMarkIII",
+        "quantity": 5
+      }
+    ]
+  },
+  {
+    "id": "TowerTwo",
+    "position": [0, 10000, 0],
+    "parallel_launchers": 1,
+    "parallel_landers": 1,
+    "launch_time": 60,
+    "landing_time": 60,
+    "ready_time": 60,
+    "bot_capacity": 10,
+    "payload_capacity": 10,
+    "inventory": [
+      {
+        "model": "RefuelerMarkIII",
+        "quantity": 5
+      }
+    ]
+  },
+  {
+    "id": "TowerThree",
+    "position": [10000, 10000, 0],
+    "parallel_launchers": 1,
+    "parallel_landers": 1,
+    "launch_time": 60,
+    "landing_time": 60,
+    "ready_time": 60,
+    "bot_capacity": 10,
+    "payload_capacity": 10,
+    "inventory": [
+      {
+        "model": "RefuelerMarkIII",
+        "quantity": 5
+      }
+    ]
+  }
+]

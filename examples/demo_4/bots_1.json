@@ -1,16 +1,9 @@
 [
   {
-    "model": "RefuelerMarkI",
+    "model": "RefuelerMarkIII",
     "type": "Refueler",
     "speed": 30,
-    "flight_time": 1000,
-    "cruising_altitude": 500
-  },
-  {
-    "model": "RefuelerMarkII",
-    "type": "Refueler",
-    "speed": 40,
-    "flight_time": 600,
+    "flight_time": 900,
     "cruising_altitude": 500
   },
   {

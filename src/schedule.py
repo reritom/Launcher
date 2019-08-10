@@ -1,4 +1,5 @@
-
+import datetime
+from typing import List
 
 class Schedule:
     def __init__(self, raw_schedule: dict):
@@ -16,6 +17,19 @@ class Schedule:
     def set_unapplicable(self):
         self.applicable = False
 
+    @classmethod
+    def from_schedules(cls, schedules: List['Schedule']) -> 'Schedule':
+        print(schedules)
+        raw_schedule = {
+            'flight_plan': None,
+            'related_sub_flight_plans': {
+                schedule.raw_schedule['flight_plan'].id: [schedule.raw_schedule]
+                for schedule in schedules
+            }
+        }
+        print(raw_schedule)
+        return cls(raw_schedule)
+
     def get_flight_plans_from_raw_schedule(self, raw_schedule: dict) -> list:
         """
         A raw schedule is of the following format:
@@ -30,7 +44,11 @@ class Schedule:
         }
         """
         flight_plans = []
-        flight_plans.append(raw_schedule['flight_plan'])
+        print(raw_schedule)
+
+        # Orchestrations dont have a top level flight plan
+        if raw_schedule.get('flight_plan'):
+            flight_plans.append(raw_schedule['flight_plan'])
 
         for waypoint_id, list_of_potential_flight_plan_dicts in raw_schedule.get('related_sub_flight_plans', {}).items():
             flight_plans.extend([
@@ -72,3 +90,7 @@ class Schedule:
     @property
     def duration(self):
         return (self.end_time - self.start_time).total_seconds()
+
+    @property
+    def is_possible(self):
+        return self.start_time > datetime.datetime.now()

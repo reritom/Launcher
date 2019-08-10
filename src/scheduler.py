@@ -1,9 +1,10 @@
 import math as maths
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Generator
 import json, datetime, random
 
 from .schedule import Schedule
 from .flight_plan import FlightPlan
+from .partial_flight_plan import PartialFlightPlan
 from .tower import Tower
 from .waypoint import Waypoint
 from .leg_waypoint import LegWaypoint
@@ -43,7 +44,7 @@ class Scheduler:
         Determine the schedule based on the time the client wants the bot to reach a certain waypoint.
         If the schedules requires the first launch to be in the past, the schedule is marked as unapplicable.
         """
-        assert waypoint_id in [waypoint.id for waypoint in flight_time.waypoints]
+        assert waypoint_id in [waypoint.id for waypoint in flight_plan.waypoints]
         self.validate_flight_plan(flight_plan)
 
         # Add an refueling waypoints to the flight plan
@@ -62,10 +63,13 @@ class Scheduler:
         # For each refueling waypoint in the flight plan, create a resupply flight plan
         refuel_flight_plans_per_waypoint_id = self.create_refuel_flight_plans(flight_plan)
 
-        with open("hello.json", 'w') as f:
-            f.write(json.dumps(refuel_flight_plans_per_waypoint_id, cls=Encoder))
+        schedule_dict = {
+            'flight_plan': flight_plan,
+            'related_sub_flight_plans': refuel_flight_plans_per_waypoint_id
+        }
 
-        schedule = Schedule()
+        schedule = Schedule(raw_schedule=schedule_dict)
+        print(f"Schedule contains {len(schedule.flight_plans)} flight plans")
         return schedule
 
     def determine_schedule_from_launch_time(self, flight_plan: FlightPlan, launch_time: datetime.datetime) -> Schedule:
@@ -497,17 +501,24 @@ class Scheduler:
 
         return calculated_flight_plans_per_waypoint_id
 
-    def get_nearest_towers_to_waypoint(self, waypoint: Waypoint) -> List[Tower]:
+    def get_nearest_towers_to_waypoint(self, waypoint: Waypoint, any: bool = False) -> List[Tower]:
         """
         For a given waypoint, return a list of towers with the first element being the closest
+        if 'any', then look at either action or the 'to' position in a leg.
+        if not 'any', we only accept action waypoints
         """
-        assert waypoint.is_action
+        if any:
+            position = waypoint.position if waypoint.is_action else waypoint.to_pos
+        else:
+            assert waypoint.is_action
+            position = waypoint.position
+
         distances = []
         print("Getting nearest towers")
 
         for tower in self.towers:
-            distance = distance_between(waypoint.position, tower.position)
-            print(f"Distance between {waypoint.position} and {tower.id} at {tower.position} is {distance}")
+            distance = distance_between(position, tower.position)
+            print(f"Distance between {position} and {tower.id} at {tower.position} is {distance}")
             distances.append((distance, tower))
 
         # We then sort by distance and return a list of towers with the first being the closest
@@ -602,11 +613,19 @@ class Scheduler:
         #print(flight_plan.to_dict())
         assert self.validate_flight_plan(flight_plan)
 
-    def create_transit_schedule(self):
+    def create_transit_schedule(self, payload_id: str, from_tower: Tower, to_tower: Tower, arrival_time: datetime.datetime, high_priority: bool) -> Schedule:
         """
         Return a schedule for transporting a payload from tower A to tower B
         considering inflight refuels, tower based refuels, and waypoint optimisation.
+        If the schedule is high priority, it will go from tower A to tower B directly
         """
+        # Confirm the payload_id is located at the prescribed tower
+
+        # Find the best route
+
+        # Create a flight plan for that route considering bot cruise altitude and climb rates
+
+        # Create any refuel plans
         pass
 
     def cancel_active_schedule(self, schedule: Schedule):
@@ -615,5 +634,109 @@ class Scheduler:
         """
         pass
 
-    def determine_schedule_for_partial_flight_plans_orchestration(self, partial_flight_plans: List) -> Schedule:
-        pass
+    def create_flight_plan_from_partial(self, partial_flight_plan: PartialFlightPlan, starting_tower: Tower, finishing_tower: Tower) -> FlightPlan:
+        """
+        For a given partial flight plan, add the legs to make it into a full flight plan
+        """
+        waypoints = [
+            waypoint.copy()
+            for waypoint in partial_flight_plan.waypoints
+        ]
+
+        first_leg = LegWaypoint(
+            positions={
+                'from': starting_tower.position,
+                'to': (
+                    waypoints[0].positions['from']
+                    if waypoints[0].is_leg
+                    else waypoints[0].position
+                )
+            }
+        )
+        waypoints.insert(0, first_leg)
+
+        last_leg = LegWaypoint(
+            positions={
+                'from': (
+                    waypoints[-1].positions['to']
+                    if waypoints[-1].is_leg
+                    else waypoints[-1].position
+                ),
+                'to': finishing_tower.position
+            }
+        )
+        waypoints.append(last_leg)
+
+        flight_plan = FlightPlan(
+            id=partial_flight_plan.id,
+            waypoints=waypoints,
+            bot_model=partial_flight_plan.bot_model,
+            starting_tower=starting_tower.id,
+            finishing_tower=finishing_tower.id
+        )
+
+        return flight_plan
+
+    def generate_potential_flight_plans_from_partial(self, partial_flight_plan: PartialFlightPlan) -> Generator[FlightPlan, None, None]:
+        """
+        Return a generator for producing potential flight plans from a partial
+        with the closest tower being highest priority
+        """
+        nearest_starting_towers = self.get_nearest_towers_to_waypoint(partial_flight_plan.waypoints[0], any=True)
+        nearest_finishing_towers = self.get_nearest_towers_to_waypoint(partial_flight_plan.waypoints[-1], any=True)
+
+        class PlanGenerator:
+            def __init__(this):
+                this.starts = nearest_starting_towers
+                this.finishes = nearest_finishing_towers
+                this.to_change = 'starts'
+                this.current_start = 0
+                this.current_finish = 0
+
+            def change_start(this):
+                this.to_change = 'starts'
+
+            def change_finish(this):
+                this.to_change = 'finishes'
+
+            def __iter__(this):
+                return this
+
+            def __next__(this):
+                if not (this.current_start == 0 and this.current_finish == 0):
+                    if this.to_change == 'starts':
+                        this.current_start += 1
+                    elif this.to_change == 'finishes':
+                        this.current_finish += 1
+                try:
+                    return self.create_flight_plan_from_partial(partial_flight_plan, this.starts[this.current_start], this.finishes[this.current_finish])
+                except IndexError:
+                    raise StopIteration()
+
+        return PlanGenerator()
+
+    def determine_schedule_for_partial_flight_plans_orchestration(self, partial_flight_plans: List[PartialFlightPlan], critical_time: datetime.datetime) -> Schedule:
+        """
+        For a given list of PartialFlightPlans and a critical time, determine the schedule and sub flight plans required
+        """
+        # For each partial flight plan, determine the closest tower and create a full flight plan
+        flight_plans = []
+        for partial_flight_plan in partial_flight_plans:
+            potential_flight_plans = self.generate_potential_flight_plans_from_partial(partial_flight_plan)
+            # TODO Here will be come priority logic on the potential plans
+            full_flight_plan = next(potential_flight_plans)
+            flight_plans.append(full_flight_plan)
+
+        # For each full flight plan, determine a schedule
+        schedules = []
+        for flight_plan in flight_plans:
+            schedule = self.determine_schedule_from_waypoint_eta(
+                flight_plan=flight_plan,
+                waypoint_eta=critical_time,
+                waypoint_id=flight_plan.waypoints[1].id
+            )
+            schedules.append(schedule)
+
+        # Merge the schedules
+        schedule = Schedule.from_schedules(schedules)
+        return schedule

@@ -8,7 +8,7 @@ from src.tools import Encoder
 import datetime, sys, os, json
 
 """
-This demo shows a schedule for a bot being refueled by multiple towers
+This demo shows a schedule for a bot being refueled by multiple towers in a multileg trip
 """
 DEMO_NUMBER = 3
 
