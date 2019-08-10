@@ -53,7 +53,7 @@ We consider this as a two-third defined flight plan as it contains payload waypo
 Note the bot model has been defined as part of the flight plan, because the flight plan is defined for a given payload, and we assume certain payloads will require certain bot models.
 
 The simulation below shows the energy deficit for this flight plan:
-![Dynamic Demo](demo/demo_2_fast.gif)
+![Dynamic Demo](demo/demo_1/processed/raw_flight_plan.gif)
 
 To make this into fully defined flight plan, we need to consider the energy deficit, and then determine the solution.
 Practically, we do this by considering the following variables:
@@ -136,15 +136,14 @@ We end up with a recalculated flight plan resembling the following:
 ```
 
 Which can be simulated as such (Note that the dotted lines means the a refuelling action is being performed on the bot)
-GIF TIME
+![Dynamic Demo](demo/demo_1/processed/calculated_flight_plan.gif)
 
 So at this point we have a fully defined flight plan which knows when and where it needs refuelling, but we have yet to determine the scheduling of these refuels
 
 ## Schedules
 Given a fully defined flight plan, we need to determine all sub-flight plans for the refuelling bots, and potentially the sub-sub-flight plans to for refuelling refuel bots on a recursive basis.
 
-??
-??
+![Dynamic Demo](demo/demo_1/processed/schedule.gif)
 
 Flight plan orchestration for payload carriers?
 
@@ -157,13 +156,19 @@ Representing a command like this in JSON is not as simple due to the open-endedn
 
 ### Example 1
 demo showing multiple towers
+![Dynamic Demo](demo/demo_2/processed/schedule.gif)
 
 ### Example 2
-demo showing bots refueling eachother
-![Dynamic Demo](demo/demo_1.gif)
+demo showing bots refuelling each other
+![Dynamic Demo](demo/demo_3/processed/schedule.gif)
 
 ### Example 3
-demo showing multiple main bots creating a grid in space
+demo showing an orchestration of five bots holding a star shape 5km high, with refuel bots coming from multiple towers
+![Dynamic Demo](demo/demo_4/processed/schedule.gif)
+
+### Example 4
+demo showing an orchestration of one hundred bots holding a grid shape 5km high, with hundreds of refuel bots coming from multiple towers
+![Dynamic Demo](demo/demo_5/processed/schedule.gif)
 
 # Core Logic
 Core logic

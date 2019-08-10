@@ -82,9 +82,6 @@ class Scheduler:
         # Add an refueling waypoints to the flight plan
         self.recalculate_flight_plan(flight_plan)
 
-        #with open("hello.json", 'w') as f:
-        #    f.write(json.dumps(flight_plan.to_dict(), cls=Encoder))
-        #raise Exception()
         # Flight plans don't consider absolute timings, so here will will add some approximates
         self.approximate_timings(flight_plan, launch_time)
 
