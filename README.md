@@ -171,7 +171,8 @@ Demo showing an orchestration of five bots holding a star shape 5km high, with r
 
 ### Example 4
 
-Demo showing an orchestration of one hundred bots holding a grid shape 5km high, with hundreds of refuel bots coming from multiple towers
+Demo showing an orchestration of one hundred bots holding a grid shape 5km high, with hundreds of refuel bots coming from multiple towers.
+
 ![Dynamic Demo](demo/demo_5/processed/schedule.gif)
 
 # Core Logic
