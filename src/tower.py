@@ -1,4 +1,5 @@
 from .flight_plan import FlightPlan
+from .resource_manager import ResourceManager, Resource
 
 import datetime
 import json
@@ -12,7 +13,13 @@ class Tower:
         self.parallel_launchers = parallel_launchers
         self.parallel_landers = parallel_landers
         self.launch_time = launch_time
-        self.events = []
+
+        # Create the resource managers for the launchers and landers
+        launch_resources = [Resource(id=i) for i in range(parallel_launchers)]
+        self.launch_allocator = ResourceManager(resources=launch_resources)
+
+        landing_resources = [Resource(id=i) for i in range(parallel_landers)]
+        self.landing_allocator = ResourceManager(resources=landing_resources)
 
     @classmethod
     def from_file(cls, filepath):

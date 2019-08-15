@@ -4,13 +4,19 @@ This script requires ffmpeg
 """
 import os, argparse
 
-def process(overwrite: bool):
+def process(overwrite: bool, demo: int = None):
     subdirs = [
         subdir
         for subdir in os.listdir(".")
         if os.path.isdir(subdir)
         and subdir.startswith("demo_")
     ]
+
+    if demo:
+        for index, subdir in enumerate(subdirs):
+            if subdir.endswith(f'_{demo}'):
+                subdirs = [subdir]
+                break
 
     for subdir in subdirs:
         if os.path.exists(os.path.join('.', subdir, 'raw')):
@@ -30,7 +36,7 @@ def process(overwrite: bool):
                 processed_mp4_path = os.path.join('.', subdir, 'processed', mp4)
                 gif_path = os.path.join('.', subdir, 'processed', mp4.replace('.mp4', '.gif'))
 
-                if not os.path.exists(processed_mp4_path) or overwrite and False:
+                if not os.path.exists(processed_mp4_path) or overwrite:
                     # First we speed it up
                     print(f"Speeding up {mp4}")
                     os.system(f"ffmpeg -i {raw_mp4_path} -filter:v 'setpts=0.2*PTS' {processed_mp4_path}")
@@ -43,4 +49,9 @@ def process(overwrite: bool):
                     os.system(f"ffmpeg -i {processed_mp4_path} -filter_complex 'fps=15,scale=640:-1:flags=lanczos,split [o1] [o2];[o1] palettegen [p]; [o2] fifo [o3];[o3] [p] paletteuse' {gif_path}")
 
 if __name__ == '__main__':
-    process(overwrite=True)
+    parser = argparse.ArgumentParser(description='Process demo files')
+    parser.add_argument('-d', help='Run for a specific demo')
+    parser.add_argument('-o', help='Overwrite existing files', action='store_true')
+
+    args = parser.parse_args()
+    process(overwrite=args.o, demo=args.d)
