@@ -43,7 +43,10 @@ partial_flight_plans = [
 ]
 
 schedule = scheduler.determine_schedule_for_partial_flight_plans_orchestration(partial_flight_plans, when)
+print(f"There are {len(schedule.flight_plans)} flight plans")
+"""
 simulator.simulate_schedule(schedule, save_path=os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', f'schedule.mp4'))
 
 with open(os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', f'schedule.json'), 'w') as f:
     f.write(json.dumps(schedule.to_dict(), cls=Encoder))
+"""

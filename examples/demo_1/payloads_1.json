@@ -1,0 +1,62 @@
+{
+  "payload_models": [
+    {
+      "id": "refuel_payload_mk1",
+      "description": "A payload for performing inflight refuels",
+      "compatable_bots": [
+        "GypsyMarkI", "RefuelerMarkI", "RefuelerMarkII"
+      ],
+      "owner": "Seres"
+    },
+    {
+      "id": "example_client_payload_1",
+      "description": "A payload designed by a client for their purpose",
+      "compatable_bots": [
+        "GypsyMarkI"
+      ],
+      "owner": "Client1"
+    }
+  ],
+  "payloads": [
+    {
+      "id": "1",
+      "payload_model": "example_client_payload_1"
+    },
+    {
+      "id": "2",
+      "payload_model": "refuel_payload_mk1"
+    },
+    {
+      "id": "3",
+      "payload_model": "refuel_payload_mk1"
+    },
+    {
+      "id": "4",
+      "payload_model": "refuel_payload_mk1"
+    },
+    {
+      "id": "5",
+      "payload_model": "refuel_payload_mk1"
+    },
+    {
+      "id": "6",
+      "payload_model": "refuel_payload_mk1"
+    },
+    {
+      "id": "7",
+      "payload_model": "refuel_payload_mk1"
+    },
+    {
+      "id": "8",
+      "payload_model": "refuel_payload_mk1"
+    },
+    {
+      "id": "9",
+      "payload_model": "refuel_payload_mk1"
+    },
+    {
+      "id": "10",
+      "payload_model": "refuel_payload_mk1"
+    }
+  ]
+}

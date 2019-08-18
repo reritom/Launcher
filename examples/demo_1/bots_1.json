@@ -1,23 +1,71 @@
-[
-  {
-    "model": "RefuelerMarkI",
-    "type": "Refueler",
-    "speed": 30,
-    "flight_time": 1000,
-    "cruising_altitude": 500
-  },
-  {
-    "model": "RefuelerMarkII",
-    "type": "Refueler",
-    "speed": 40,
-    "flight_time": 600,
-    "cruising_altitude": 500
-  },
-  {
-     "model":"GypsyMarkI",
-     "type": "Operator",
-     "flight_time":1000,
-     "speed":10,
-     "cruising_altitude": 500
-  }
-]
+{
+  "bot_models": [
+    {
+      "model": "RefuelerMarkI",
+      "type": "Refueler",
+      "speed": 30,
+      "flight_time": 1000,
+      "cruising_altitude": 500
+    },
+    {
+      "model": "RefuelerMarkII",
+      "type": "Refueler",
+      "speed": 40,
+      "flight_time": 600,
+      "cruising_altitude": 500
+    },
+    {
+       "model":"GypsyMarkI",
+       "type": "Operator",
+       "flight_time":1000,
+       "speed":10,
+       "cruising_altitude": 500
+    }
+  ],
+  "bots": [
+    {
+      "id": "bot1",
+      "bot_model": "GypsyMarkI"
+    },
+    {
+      "id": "bot2",
+      "bot_model": "RefuelerMarkI"
+    },
+    {
+      "id": "bot3",
+      "bot_model": "RefuelerMarkI"
+    },
+    {
+      "id": "bot4",
+      "bot_model": "RefuelerMarkI"
+    },
+    {
+      "id": "bot5",
+      "bot_model": "RefuelerMarkI"
+    },
+    {
+      "id": "bot6",
+      "bot_model": "RefuelerMarkI"
+    },
+    {
+      "id": "bot7",
+      "bot_model": "RefuelerMarkI"
+    },
+    {
+      "id": "bot8",
+      "bot_model": "RefuelerMarkI"
+    },
+    {
+      "id": "bot9",
+      "bot_model": "RefuelerMarkI"
+    },
+    {
+      "id": "bot10",
+      "bot_model": "RefuelerMarkI"
+    },
+    {
+      "id": "bot11",
+      "bot_model": "RefuelerMarkI"
+    }
+  ]
+}

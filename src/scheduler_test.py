@@ -4,7 +4,7 @@ import json
 import datetime
 
 from .scheduler import Scheduler
-from .bot import Bot
+from .bot import BotSchema
 from .flight_plan import FlightPlan
 from .tower import Tower
 from .action_waypoint import ActionWaypoint
@@ -17,13 +17,13 @@ class TestScheduler(unittest.TestCase):
 
     def test_validate_flight_plan_ok(self):
         bots = [
-            Bot(
+            BotSchema(
                 flight_time=500,
                 speed=1,
                 bot_type="Refueler",
                 model="TestI"
             ),
-            Bot(
+            BotSchema(
                 flight_time=500,
                 speed=1,
                 bot_type="Carrier",
@@ -75,13 +75,13 @@ class TestScheduler(unittest.TestCase):
 
     def test_validate_flight_plan_ko_invalid_bot_model(self):
         bots = [
-            Bot(
+            BotSchema(
                 flight_time=500,
                 speed=1,
                 bot_type="Refueler",
                 model="TestI"
             ),
-            Bot(
+            BotSchema(
                 flight_time=500,
                 speed=1,
                 bot_type="Carrier",
@@ -128,13 +128,13 @@ class TestScheduler(unittest.TestCase):
 
     def test_validate_flight_plan_ko_invalid_final_target(self):
         bots = [
-            Bot(
+            BotSchema(
                 flight_time=500,
                 speed=1,
                 bot_type="Refueler",
                 model="TestI"
             ),
-            Bot(
+            BotSchema(
                 flight_time=500,
                 speed=1,
                 bot_type="Carrier",
@@ -181,7 +181,7 @@ class TestScheduler(unittest.TestCase):
 
     def test_approximate_timings_from_launch_time(self):
         bots = [
-            Bot(
+            BotSchema(
                 flight_time=50,
                 speed=1,
                 bot_type="Carrier",
@@ -263,7 +263,7 @@ class TestScheduler(unittest.TestCase):
 
     def test_approximate_timings_from_waypoint_eta(self):
         bots = [
-            Bot(
+            BotSchema(
                 flight_time=50,
                 speed=1,
                 bot_type="Carrier",
@@ -346,13 +346,13 @@ class TestScheduler(unittest.TestCase):
 
     def test_recalculate_flight_plan_one_leg(self):
         bots = [
-            Bot(
+            BotSchema(
                 flight_time=500,
                 speed=1,
                 bot_type="Refueler",
                 model="TestI"
             ),
-            Bot(
+            BotSchema(
                 flight_time=500,
                 speed=1,
                 bot_type="Carrier",
@@ -453,13 +453,13 @@ class TestScheduler(unittest.TestCase):
 
     def test_recalculate_flight_plan_roundtrip_with_action(self):
         bots = [
-            Bot(
+            BotSchema(
                 flight_time=500,
                 speed=1,
                 bot_type="Refueler",
                 model="TestI"
             ),
-            Bot(
+            BotSchema(
                 flight_time=500,
                 speed=1,
                 bot_type="Carrier",
@@ -575,13 +575,13 @@ class TestScheduler(unittest.TestCase):
 
     def test_recalculate_flight_plan_roundtrip_with_giving_refuel_action(self):
         bots = [
-            Bot(
+            BotSchema(
                 flight_time=500,
                 speed=1,
                 bot_type="Refueler",
                 model="TestI"
             ),
-            Bot(
+            BotSchema(
                 flight_time=500,
                 speed=1,
                 bot_type="Carrier",
@@ -694,13 +694,13 @@ class TestScheduler(unittest.TestCase):
 
     def test_get_nearest_towers_to_waypoint(self):
         bots = [
-            Bot(
+            BotSchema(
                 flight_time=500,
                 speed=1,
                 bot_type="Refueler",
                 model="TestI"
             ),
-            Bot(
+            BotSchemaSchema(
                 flight_time=500,
                 speed=1,
                 bot_type="Carrier",

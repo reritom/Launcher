@@ -10,8 +10,11 @@ class IntervalResourceManager(ResourceManager):
     def __init__(self, interval_duration: datetime.timedelta, resources: Optional[List[Resource]] = None):
         self.interval_duration = interval_duration
         assert isinstance(self.interval_duration, datetime.timedelta)
+
         self.daily_intervals = datetime.timedelta(days=1) // interval_duration
         assert self.daily_intervals >= 1
+
+        # This is for storing allocation data for interval based referencing
         self.days = {}
         super().__init__(resources=resources)
 
@@ -51,9 +54,20 @@ class IntervalResourceManager(ResourceManager):
 
     def is_allocation_available(self, *args, **kwargs):
         """
-        We don't want this parent method to be used, so we hide it
+        We don't want this parent method to be used, so we hide it for now
         """
-        raise NotImplementedError("This method is unavailable")
+        ...
+
+    def get_window_for_interval(self, date: datetime.datetime, interval: int) -> tuple:
+        """
+        For a given interval number and date, return a tuple of the start and end of the window
+        """
+        assert interval <= daily_intervals
+        date = datetime.datetime.strptime(date.strftime("%d/%m/%Y"), "%d/%m/%Y")
+        return (
+            date + interval*self.interval_duration,
+            date + (interval + 1)*self.interval_duration
+        )
 
     def get_nearest_intervals_to_window_start(self, reference_time: datetime.datetime) -> List[tuple]:
         """
@@ -62,16 +76,22 @@ class IntervalResourceManager(ResourceManager):
         """
         date = datetime.datetime.strptime(reference_time.strftime("%d/%m/%Y"), "%d/%m/%Y")
         available_intervals = self.get_available_intervals(date=date)
+
         starting_times = [
             (interval, date + interval*self.interval_duration)
             for interval in available_intervals
         ]
+
+        # For each starting time, look at the difference
         starting_times_delta = [
             (interval_time_tuple[0], abs(interval_time_tuple[1] - reference_time))
             for interval_time_tuple in starting_times
         ]
 
+        # Sort by smallest deltas
         starting_times_delta.sort(key=lambda item: item[1])
+
+        # Return just the intervals
         return [
             interval_time_tuple[0]
             for interval_time_tuple in starting_times_delta
@@ -84,16 +104,22 @@ class IntervalResourceManager(ResourceManager):
         """
         date = datetime.datetime.strptime(reference_time.strftime("%d/%m/%Y"), "%d/%m/%Y")
         available_intervals = self.get_available_intervals(date=date)
+
         ending_times = [
             (interval, date + (interval+1)*self.interval_duration)
             for interval in available_intervals
         ]
+
+        # For each ending time, look at the difference
         ending_times_delta = [
             (interval_time_tuple[0], abs(interval_time_tuple[1] - reference_time))
             for interval_time_tuple in ending_times
         ]
 
+        # Sort by smallest deltas
         ending_times_delta.sort(key=lambda item: item[1])
+
+        # Return just the intervals
         return [
             interval_time_tuple[0]
             for interval_time_tuple in ending_times_delta

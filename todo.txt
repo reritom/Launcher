@@ -1,4 +1,4 @@
-- Refuel during payload action should be parallel
+- Refuel during payload action should be parallel (optional based on waypoint attribute)
 - Towers to be renamed to Ports
 - Schedules to check if flight plans are available
 - Towers tracking launch and landing windows

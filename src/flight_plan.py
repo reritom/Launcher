@@ -4,7 +4,7 @@ from typing import Optional
 from .leg_waypoint import LegWaypoint
 from .action_waypoint import ActionWaypoint
 from .waypoint import Waypoint
-from .bot import Bot
+from .bot_schema import BotSchema
 from .tools import distance_between
 
 class FlightPlan:

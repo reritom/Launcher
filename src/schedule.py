@@ -5,8 +5,6 @@ class Schedule:
     def __init__(self, raw_schedule: dict):
         self.raw_schedule = raw_schedule
         self.applicable = True
-        self.flight_plans = self.get_flight_plans_from_raw_schedule(raw_schedule)
-        self.flight_plans.sort(key=lambda x: x.start_time)
 
     def to_dict(self):
         return {
@@ -29,6 +27,12 @@ class Schedule:
         }
         print(raw_schedule)
         return cls(raw_schedule)
+
+    @property
+    def flight_plans(self):
+        flight_plans = self.get_flight_plans_from_raw_schedule(self.raw_schedule)
+        flight_plans.sort(key=lambda x: x.start_time)
+        return flight_plans
 
     def get_flight_plans_from_raw_schedule(self, raw_schedule: dict) -> list:
         """

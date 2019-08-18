@@ -15,7 +15,7 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 # Application
-from .bot import Bot
+from .bot_schema import BotSchema
 from .tools import distance_between, find_middle_position_by_ratio
 
 class Heatmap:
@@ -61,17 +61,17 @@ class Heatmap:
         return tuple(i/256 for i in rgb)
 
 class Simulator:
-    def __init__(self, bots, towers):
-        self.bots = bots
+    def __init__(self, bot_schemas, towers):
+        self.bot_schemas = bot_schemas
         self.towers = towers
 
-    def get_bot_by_model(self, model: str) -> Optional[Bot]:
+    def get_bot_schemas_by_model(self, model: str) -> Optional[BotSchema]:
         """
         Get the bot object from the catalogue for a given model
         """
-        for bot in self.bots:
-            if bot.model == model:
-                return bot
+        for bot_schema in self.bot_schemas:
+            if bot_schema.model == model:
+                return bot_schema
 
     def determine_schedule_ranges(self, schedule) -> dict:
         """
@@ -301,14 +301,14 @@ class Simulator:
             plt.show()
 
     def get_flight_plan_duration(self, flight_plan):
-        bot = self.get_bot_by_model(flight_plan.bot_model)
+        bot_schema = self.get_bot_schemas_by_model(flight_plan.bot_model)
 
         duration = 0
         for waypoint in flight_plan.waypoints:
             if waypoint.is_action:
                 duration += waypoint.duration
             elif waypoint.is_leg:
-                duration += distance_between(waypoint.from_pos, waypoint.to_pos)/bot.speed
+                duration += distance_between(waypoint.from_pos, waypoint.to_pos)/bot_schema.speed
 
         return int(duration)
 
@@ -317,14 +317,14 @@ class Simulator:
         Return a dataframe representation of the flight plan containing the coordinates and time in seconds
         from the start of the flight
         """
-        bot = self.get_bot_by_model(flight_plan.bot_model)
+        bot_schema = self.get_bot_schemas_by_model(flight_plan.bot_model)
         duration = self.get_flight_plan_duration(flight_plan)
 
         time, x, y, z, being_refueled, fuel_percent = [], [], [], [], [], []
 
         current_waypoint_index = 0
         current_duration_into_waypoint = 0
-        remaining_fuel = bot.flight_time
+        remaining_fuel = bot_schema.flight_time
 
         for second in range(duration):
             # See which waypoint this is in to determine the position
@@ -336,7 +336,7 @@ class Simulator:
             current_waypoint_duration = (
                 current_waypoint.duration
                 if current_waypoint.is_action
-                else int(distance_between(current_waypoint.from_pos, current_waypoint.to_pos)/bot.speed)
+                else int(distance_between(current_waypoint.from_pos, current_waypoint.to_pos)/bot_schema.speed)
             )
 
             time.append(second)
@@ -350,7 +350,7 @@ class Simulator:
                     and flight_plan.waypoints[current_waypoint_index - 1].is_being_recharged
                 ):
                     #print("Previous waypoint is being recharged")
-                    remaining_fuel = bot.flight_time
+                    remaining_fuel = bot_schema.flight_time
                 else:
                     remaining_fuel = remaining_fuel - 1
             except IndexError as e:
@@ -359,7 +359,7 @@ class Simulator:
                 pass
             finally:
                 #print(f"Remaining fuel {remaining_fuel}, {bot.flight_time}")
-                fuel = remaining_fuel/bot.flight_time
+                fuel = remaining_fuel/bot_schema.flight_time
                 #print(fuel)
                 assert fuel <= 1
                 fuel_percent.append(fuel)

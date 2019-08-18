@@ -10,20 +10,23 @@ from .waypoint import Waypoint
 from .leg_waypoint import LegWaypoint
 from .action_waypoint import ActionWaypoint
 from .bot import BotSchema
-from .payload_schema import PayloadSchema
 from .tools import distance_between, find_middle_position_by_ratio, Encoder
 
 
 class Scheduler:
-    def __init__(self, towers: List[Tower], bot_schemas: List[BotSchema], payload_schemas: List[PayloadSchema], refuel_duration: int, remaining_flight_time_at_refuel: int, refuel_anticipation_buffer: str):
+    def __init__(self, towers: List[Tower], bots: List[BotSchema], refuel_duration: int, remaining_flight_time_at_refuel: int, refuel_anticipation_buffer: str):
         # Tower objects with their inventories and availabilities
         self.towers = towers
 
-        # List of defined bot types
-        self.bot_schemas = bot_schemas
+        # List of defined bots
+        self.bots = bots
 
-        # Schemas for payloads
-        self.payloads_schemas = payload_schemas
+        # All the bots in each tower inventory needs to be defined in this bots list
+        bot_models = [bot.model for bot in self.bots]
+
+        for self.tower in towers:
+            for inventory in self.tower.inventory:
+                assert inventory['model'] in bot_models, f"{inventory['model']} not defined in bot models, {bot_models}"
 
         # The seconds that a refueler should arrive at the refuel location before the refueling
         self.refuel_anticipation_buffer = refuel_anticipation_buffer
@@ -108,7 +111,7 @@ class Scheduler:
         Perform some basic assertions on the flight plan to ensure it will work
         """
         # The associated bot model needs to exist in our context
-        assert flight_plan.bot_model in [bot.model for bot in self.bot_schemas], "Unknown bot model"
+        assert flight_plan.bot_model in [bot.model for bot in self.bots], "Unknown bot model"
 
         # Make sure the flight plan starts at a tower
         assert flight_plan.starting_tower in [tower.id for tower in self.towers]
@@ -147,7 +150,7 @@ class Scheduler:
             if waypoint.is_action:
                 waypoint.end_time = waypoint.start_time + datetime.timedelta(seconds=waypoint.duration)
             elif waypoint.is_leg:
-                bot = self.get_bot_schema_by_model(flight_plan.bot_model)
+                bot = self.get_bot_by_model(flight_plan.bot_model)
                 waypoint.end_time = waypoint.start_time + datetime.timedelta(seconds=distance_between(waypoint.from_pos, waypoint.to_pos)/bot.speed)
 
     def approximate_timings_based_on_waypoint_eta(self, flight_plan: FlightPlan, waypoint_eta: datetime.datetime, waypoint_id: str):
@@ -158,7 +161,7 @@ class Scheduler:
         index = [index for index, waypoint in enumerate(flight_plan.waypoints) if waypoint.id == waypoint_id].pop(0)
         initial_index = index
 
-        bot = self.get_bot_schema_by_model(flight_plan.bot_model)
+        bot = self.get_bot_by_model(flight_plan.bot_model)
 
         # We will work backwards from the index
         while index >= 0:
@@ -207,8 +210,8 @@ class Scheduler:
                     # Else we will look at the duration of the action, and split it if necessary
                     time_since_last_recharge += waypoint.duration
 
-                    bot_schema = self.get_bot_schema_by_model(flight_plan.bot_model)
-                    threshold = bot_schema.flight_time - self.remaining_flight_time_at_refuel - self.refuel_duration
+                    bot = self.get_bot_by_model(flight_plan.bot_model)
+                    threshold = bot.flight_time - self.remaining_flight_time_at_refuel - self.refuel_duration
                     if time_since_last_recharge > threshold:
                         # If the waypoint is giving performing a recharge, then we can't interrupt it
                         if waypoint.is_giving_recharge:
@@ -287,7 +290,7 @@ class Scheduler:
                     continue
 
                 elif waypoint.is_leg:
-                    bot = self.get_bot_schema_by_model(flight_plan.bot_model)
+                    bot = self.get_bot_by_model(flight_plan.bot_model)
                     leg_time = int(distance_between(waypoint.from_pos, waypoint.to_pos)/bot.speed)
                     time_since_last_recharge += leg_time
 
@@ -393,14 +396,15 @@ class Scheduler:
             ]
 
             # Each tower can multiple types of refueler models, so we will check each
-            for bot_schema in self.bot_schemas:
-                if bot_schema.is_refueler:
+            for bot_model in tower.inventory_models:
+                bot = self.get_bot_by_model(bot_model)
+                if bot.is_refueler:
                     flight_plan = FlightPlan(
                         waypoints=[
                             waypoint.copy()
                             for waypoint in waypoints
                             ],
-                        bot_model=bot_schema.model,
+                        bot_model=bot_model,
                         starting_tower=tower.id,
                         finishing_tower=tower.id
                     )
@@ -525,13 +529,13 @@ class Scheduler:
             for distance in distances
         ]
 
-    def get_bot_schema_by_model(self, model: str) -> Optional[BotSchema]:
+    def get_bot_by_model(self, model: str) -> Optional[BotSchema]:
         """
         Get the bot object from the catalogue for a given model
         """
-        for bot_schema in self.bot_schemas:
-            if bot_schema.model == model:
-                return bot_schema
+        for bot in self.bots:
+            if bot.model == model:
+                return bot
 
     def get_tower_by_id(self, id: str) -> Optional[Tower]:
         """
@@ -560,7 +564,7 @@ class Scheduler:
         leg_index = giving_recharge_index - 2
 
         # We want to refuel sufficiently before we reach the recharge position
-        bot = self.get_bot_schema_by_model(flight_plan.bot_model)
+        bot = self.get_bot_by_model(flight_plan.bot_model)
         time_to_refuel_before_end_of_leg = (
             bot.flight_time
             - self.refuel_duration

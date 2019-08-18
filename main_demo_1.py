@@ -2,22 +2,43 @@ from src.flight_plan import FlightPlan
 from src.scheduler import Scheduler
 from src.simulator import Simulator
 from src.tower import Tower
-from src.bot import Bot
+from src.bot import BotSchema
+from src.payload import Payload
+from src.payload_schema import PayloadSchema
 from src.tools import Encoder
-
+from src.resource_manager import ResourceManager, Resource
 import datetime, sys, os, json
 
 """
 This demo creates the raw files for showing the evolution of a single energy deficient flight plan into
-a plan with refueler points and refueler sub plans
+a plan with refuel points and refueler sub plans
 """
 DEMO_NUMBER = 1
 
 """ Common """
 towers = Tower.from_catalogue_file(f"./examples/demo_{DEMO_NUMBER}/towers_1.json")
-bots = Bot.from_catalogue_file(f"./examples/demo_{DEMO_NUMBER}/bots_1.json")
-scheduler = Scheduler(towers=towers, bots=bots, refuel_duration=60, remaining_flight_time_at_refuel=300, refuel_anticipation_buffer=60)
-simulator = Simulator(towers=towers, bots=bots)
+bot_schemas = BotSchema.from_catalogue_file(f"./examples/demo_{DEMO_NUMBER}/bots_1.json")
+
+# Create the payload manager
+with open(f"./examples/demo_{DEMO_NUMBER}/payloads_1.json", 'r') as f:
+    payloads_json = json.load(f)
+
+payloads = [
+    Payload(id=payload['id'], schema=payload['payload_model'])
+    for payload in payloads_json['payloads']
+]
+
+payload_manager = ResourceManager(payloads)
+
+payload_schemas = [
+    PayloadSchema(id=payload_model['id'], compatable_bots=payload_model['compatable_bots'])
+    for payload_model in payloads_json['payload_models']
+]
+
+# Create the bot manager
+
+scheduler = Scheduler(towers=towers, bot_schemas=bot_schemas, payload_schemas=payload_schemas, refuel_duration=60, remaining_flight_time_at_refuel=300, refuel_anticipation_buffer=60)
+simulator = Simulator(towers=towers, bot_schemas=bot_schemas)
 when = datetime.datetime.now() + datetime.timedelta(days=1)
 
 # Prepare the storage
@@ -33,7 +54,7 @@ if not 'raw' in os.listdir(os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}')):
 print("Part 1")
 flight_plan = FlightPlan.from_file(f"./examples/demo_{DEMO_NUMBER}/flight_plan_1.json")
 scheduler.add_positions_to_action_waypoints(flight_plan)
-simulator.simulate_flight_plan(flight_plan, save_path=os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', 'raw_flight_plan.mp4'))
+simulator.simulate_flight_plan(flight_plan)#, save_path=os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', 'raw_flight_plan.mp4'))
 
 with open(os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', 'raw_flight_plan.json'), 'w') as f:
     f.write(json.dumps(flight_plan.to_dict(), cls=Encoder))
@@ -43,7 +64,7 @@ with open(os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', 'raw_flight_pl
 print("Part 2")
 flight_plan = FlightPlan.from_file(f"./examples/demo_{DEMO_NUMBER}/flight_plan_1.json")
 schedule = scheduler.determine_schedule_from_launch_time(flight_plan, when)
-simulator.simulate_flight_plan(flight_plan, save_path=os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', 'calculated_flight_plan.mp4'))
+simulator.simulate_flight_plan(flight_plan)#, save_path=os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', 'calculated_flight_plan.mp4'))
 
 with open(os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', 'calculated_flight_plan.json'), 'w') as f:
     f.write(json.dumps(flight_plan.to_dict(), cls=Encoder))
@@ -53,7 +74,7 @@ with open(os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', 'calculated_fl
 print("Part 3")
 flight_plan = FlightPlan.from_file(f"./examples/demo_{DEMO_NUMBER}/flight_plan_1.json")
 schedule = scheduler.determine_schedule_from_launch_time(flight_plan, when)
-simulator.simulate_schedule(schedule, save_path=os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', f'schedule.mp4'))
+simulator.simulate_schedule(schedule)#, save_path=os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', f'schedule.mp4'))
 
 with open(os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', f'schedule.json'), 'w') as f:
     f.write(json.dumps(schedule.to_dict(), cls=Encoder))

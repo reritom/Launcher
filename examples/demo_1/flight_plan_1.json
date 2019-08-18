@@ -1,6 +1,7 @@
 {
    "id": "main",
    "bot_model": "GypsyMarkI",
+   "payload_id": "1",
    "starting_tower": "TowerZero",
    "finishing_tower": "TowerZero",
    "waypoints":[
