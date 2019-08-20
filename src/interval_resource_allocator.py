@@ -1,9 +1,9 @@
-from .resource_manager import ResourceManager, Resource, AllocationError
+from .resource_allocator import ResourceAllocator, Resource, AllocationError
 
 import datetime
 from typing import Optional, List
 
-class IntervalResourceManager(ResourceManager):
+class IntervalResourceAllocator(ResourceAllocator):
     """
     This module extends the resource manager to only allow allocation of predefined intervals.
     """

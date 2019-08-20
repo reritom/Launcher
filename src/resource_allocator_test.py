@@ -1,12 +1,12 @@
 import unittest, datetime
 
-from .resource_manager import ResourceManager, AllocationError, Resource
+from .resource_allocator import ResourceAllocator, AllocationError, Resource
 
 
-class TestResourceManager(unittest.TestCase):
+class TestResourceAllocator(unittest.TestCase):
     def test_add_resource(self):
         resource = Resource(id="id1")
-        manager = ResourceManager(resources=[resource])
+        manager = ResourceAllocator(resources=[resource])
 
         # Test 1
         resource_2 = Resource(id="id2")
@@ -20,7 +20,7 @@ class TestResourceManager(unittest.TestCase):
     def test_allocate_resource(self):
         resource_1 = Resource(id="id1")
         resource_2 = Resource(id="id2")
-        manager = ResourceManager(resources=[resource_1, resource_2])
+        manager = ResourceAllocator(resources=[resource_1, resource_2])
 
         # Test 1
         manager.allocate_resource(
@@ -46,13 +46,13 @@ class TestResourceManager(unittest.TestCase):
 
     def test_get_allocations(self):
         # Test 1 - Nothing for this resource
-        manager = ResourceManager()
+        manager = ResourceAllocator()
         allocation = manager.get_allocations(resource_id="id1")
         self.assertIsNone(allocation)
 
         # Test 2
         resource_1 = Resource(id="id1")
-        manager = ResourceManager(resources=[resource_1])
+        manager = ResourceAllocator(resources=[resource_1])
 
         manager.allocate_resource(
             resource_id="id1",
@@ -70,7 +70,7 @@ class TestResourceManager(unittest.TestCase):
 
     def test_get_allocation_by_time(self):
         resource_1 = Resource(id="id1")
-        manager = ResourceManager(resources=[resource_1])
+        manager = ResourceAllocator(resources=[resource_1])
 
         manager.allocate_resource(
             resource_id="id1",
@@ -93,7 +93,7 @@ class TestResourceManager(unittest.TestCase):
 
     def test_get_allocation_by_id(self):
         resource_1 = Resource(id="id1")
-        manager = ResourceManager(resources=[resource_1])
+        manager = ResourceAllocator(resources=[resource_1])
 
         manager.allocate_resource(
             resource_id="id1",
@@ -117,7 +117,7 @@ class TestResourceManager(unittest.TestCase):
 
     def test_delete_allocation(self):
         resource_1 = Resource(id="id1")
-        manager = ResourceManager(resources=[resource_1])
+        manager = ResourceAllocator(resources=[resource_1])
 
         # Test 1 - Nothing to delete
         self.assertIsNone(manager.delete_allocation(allocation_id="non-existant-id"))
@@ -135,7 +135,7 @@ class TestResourceManager(unittest.TestCase):
 
     def test_is_allocation_available(self):
         resource_1 = Resource(id="id1")
-        manager = ResourceManager(resources=[resource_1])
+        manager = ResourceAllocator(resources=[resource_1])
 
         # Test 1 - Allocation is available
         is_available = manager.is_allocation_available(

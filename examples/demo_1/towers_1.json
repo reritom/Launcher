@@ -9,16 +9,6 @@
     "ready_time": 60,
     "bot_capacity": 10,
     "payload_capacity": 10,
-    "inventory": [
-      {
-        "model": "RefuelerMarkI",
-        "quantity": 10
-      },
-      {
-        "model": "GypsyMarkI",
-        "quantity": 1
-      }
-    ],
     "initial_bots": ["bot1", "bot2", "bot3", "bot4", "bot5", "bot6", "bot7", "bot8", "bot9", "bot10", "bot11"],
     "initial_payloads": ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
   }

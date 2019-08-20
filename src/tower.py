@@ -1,5 +1,5 @@
 from .flight_plan import FlightPlan
-from .interval_resource_manager import IntervalResourceManager, Resource, AllocationError
+from .interval_resource_allocator import IntervalResourceAllocator, Resource, AllocationError
 
 import datetime
 import json
@@ -16,13 +16,13 @@ class Tower:
 
         # Create the resource managers for the launchers and landers
         launch_resources = [Resource(id=i) for i in range(parallel_launchers)]
-        self.launch_allocator = IntervalResourceManager(
+        self.launch_allocator = IntervalResourceAllocator(
             interval_duration=datetime.timedelta(seconds=self.launch_time),
             resources=launch_resources
         )
 
         landing_resources = [Resource(id=i) for i in range(parallel_landers)]
-        self.landing_allocator = IntervalResourceManager(
+        self.landing_allocator = IntervalResourceAllocator(
             interval_duration=datetime.timedelta(seconds=self.landing_time),
             resources=landing_resources
         )

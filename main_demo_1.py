@@ -2,7 +2,8 @@ from src.flight_plan import FlightPlan
 from src.scheduler import Scheduler
 from src.simulator import Simulator
 from src.tower import Tower
-from src.bot import BotSchema
+from src.bot_schema import BotSchema
+from src.bot import Bot
 from src.payload import Payload
 from src.payload_schema import PayloadSchema
 from src.tools import Encoder
@@ -19,6 +20,9 @@ DEMO_NUMBER = 1
 towers = Tower.from_catalogue_file(f"./examples/demo_{DEMO_NUMBER}/towers_1.json")
 bot_schemas = BotSchema.from_catalogue_file(f"./examples/demo_{DEMO_NUMBER}/bots_1.json")
 
+with open(f'./examples/demo_{DEMO_NUMBER}/towers_1.json', 'r') as f:
+    tower_json = json.load(f)
+
 # Create the payload manager
 with open(f"./examples/demo_{DEMO_NUMBER}/payloads_1.json", 'r') as f:
     payloads_json = json.load(f)
@@ -30,14 +34,44 @@ payloads = [
 
 payload_manager = ResourceManager(payloads)
 
+# The payloads need an initial allocation for location context coming from the Tower jsons
 payload_schemas = [
     PayloadSchema(id=payload_model['id'], compatable_bots=payload_model['compatable_bots'])
     for payload_model in payloads_json['payload_models']
 ]
 
 # Create the bot manager
+with open(f"./examples/demo_{DEMO_NUMBER}/bots_1.json", 'r') as f:
+    bot_json = json.load(f)
 
-scheduler = Scheduler(towers=towers, bot_schemas=bot_schemas, payload_schemas=payload_schemas, refuel_duration=60, remaining_flight_time_at_refuel=300, refuel_anticipation_buffer=60)
+bots = [
+    Bot(id=bot['id'], schema=bot['bot_model'])
+    for bot in bot_json['bots']
+]
+
+bot_manager = ResourceManager(bots)
+
+# The BotManager and PayloadManager need their trackers initialised using the data from the tower_json
+# which says the initial inventory of each tower
+for tower in tower_json:
+    for bot_id in tower.get('initial_bots', []):
+        bot_manager.set_tracker(bot_id, {"tower_id": tower['id']})
+
+    for payload_id in tower.get('initial_payloads', []):
+        payload_manager.set_tracker(payload_id, {"tower_id": tower['id']})
+
+
+scheduler = Scheduler(
+    towers=towers,
+    bot_schemas=bot_schemas,
+    payload_schemas=payload_schemas,
+    bot_manager=bot_manager,
+    payload_manager=payload_manager,
+    refuel_duration=60,
+    remaining_flight_time_at_refuel=300,
+    refuel_anticipation_buffer=60
+)
+
 simulator = Simulator(towers=towers, bot_schemas=bot_schemas)
 when = datetime.datetime.now() + datetime.timedelta(days=1)
 

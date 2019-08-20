@@ -1,17 +1,17 @@
 import unittest
 import datetime
 
-from .interval_resource_manager import IntervalResourceManager, Resource, AllocationError
+from .interval_resource_allocator import IntervalResourceAllocator, Resource, AllocationError
 
-class IntervalResourceManagerTest(unittest.TestCase):
+class IntervalResourceAllocatorTest(unittest.TestCase):
     def test_init(self):
-        manager = IntervalResourceManager(interval_duration=datetime.timedelta(seconds=60))
+        manager = IntervalResourceAllocator(interval_duration=datetime.timedelta(seconds=60))
         self.assertEqual(manager.daily_intervals, 1440)
         self.assertEqual(manager.days, {})
 
     def test_allocate_resource(self):
         resources = [Resource(id="id1")]
-        manager = IntervalResourceManager(interval_duration=datetime.timedelta(seconds=60), resources=resources)
+        manager = IntervalResourceAllocator(interval_duration=datetime.timedelta(seconds=60), resources=resources)
 
         # Test 1 - Normal allocation
         manager.allocate_resource(
@@ -37,7 +37,7 @@ class IntervalResourceManagerTest(unittest.TestCase):
 
     def test_get_available_intervals(self):
         resources = [Resource(id="id1")]
-        manager = IntervalResourceManager(interval_duration=datetime.timedelta(seconds=60), resources=resources)
+        manager = IntervalResourceAllocator(interval_duration=datetime.timedelta(seconds=60), resources=resources)
 
         manager.allocate_resource(
             resource_id="id1",
@@ -60,7 +60,7 @@ class IntervalResourceManagerTest(unittest.TestCase):
         now = datetime.datetime.now()
         test_time = datetime.datetime.strptime(now.strftime("%d/%m/%Y") + " 12:00:00", "%d/%m/%Y %H:%M:%S")
         resources = [Resource(id="id1")]
-        manager = IntervalResourceManager(interval_duration=datetime.timedelta(hours=1), resources=resources)
+        manager = IntervalResourceAllocator(interval_duration=datetime.timedelta(hours=1), resources=resources)
 
         manager.allocate_resource(
             resource_id="id1",
@@ -76,7 +76,7 @@ class IntervalResourceManagerTest(unittest.TestCase):
         now = datetime.datetime.now()
         test_time = datetime.datetime.strptime(now.strftime("%d/%m/%Y") + " 12:00:00", "%d/%m/%Y %H:%M:%S")
         resources = [Resource(id="id1")]
-        manager = IntervalResourceManager(interval_duration=datetime.timedelta(hours=1), resources=resources)
+        manager = IntervalResourceAllocator(interval_duration=datetime.timedelta(hours=1), resources=resources)
 
         manager.allocate_resource(
             resource_id="id1",

@@ -11,11 +11,23 @@ from .leg_waypoint import LegWaypoint
 from .action_waypoint import ActionWaypoint
 from .bot import BotSchema
 from .payload_schema import PayloadSchema
+from .resource_manager import ResourceManager
 from .tools import distance_between, find_middle_position_by_ratio, Encoder
 
 
 class Scheduler:
-    def __init__(self, towers: List[Tower], bot_schemas: List[BotSchema], payload_schemas: List[PayloadSchema], refuel_duration: int, remaining_flight_time_at_refuel: int, refuel_anticipation_buffer: str):
+    def __init__(
+        self,
+        towers: List[Tower],
+        bot_schemas: List[BotSchema],
+        payload_schemas: List[PayloadSchema],
+        bot_manager: ResourceManager,
+        payload_manager: ResourceManager,
+        refuel_duration: int,
+        remaining_flight_time_at_refuel: int,
+        refuel_anticipation_buffer: str
+        ):
+
         # Tower objects with their inventories and availabilities
         self.towers = towers
 
@@ -24,6 +36,12 @@ class Scheduler:
 
         # Schemas for payloads
         self.payloads_schemas = payload_schemas
+
+        # The actual bot physical resource manager
+        self.bot_manager = bot_manager
+
+        # The actual payload physical resource manager
+        self.payload_manager = payload_manager
 
         # The seconds that a refueler should arrive at the refuel location before the refueling
         self.refuel_anticipation_buffer = refuel_anticipation_buffer
@@ -733,3 +751,16 @@ class Scheduler:
         # Merge the schedules
         schedule = Schedule.from_schedules(schedules)
         return schedule
+
+    def allocate_flight_plan(self, flight_plan: FlightPlan) -> bool:
+        """
+        For a given flight plan, attempt to make all the resource allocations and fallback if it fails
+        """
+        # Allocate the launch window
+
+        # Allocate the landing window
+
+        # Allocate bot and add tracking notes
+
+        # Allocate payload and add tracking notes
+        ...
