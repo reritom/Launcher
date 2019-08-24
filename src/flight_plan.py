@@ -176,6 +176,20 @@ class FlightPlan:
             finishing_tower=self.finishing_tower
         )
 
+    def copy_from(self, other_flight_plan: 'FlightPlan'):
+        """
+        Overwrite this flight plan with the contents of another
+        """
+        self.waypoints = [
+            waypoint.copy()
+            for waypoint in other_flight_plan.waypoints
+        ]
+
+        self.bot_model = other_flight_plan.bot_model
+        self.starting_tower = other_flight_plan.starting_tower
+        self.finishing_tower = other_flight_plan.finishing_tower
+        self.id = other_flight_plan.id
+
     @property
     def start_time(self):
         """

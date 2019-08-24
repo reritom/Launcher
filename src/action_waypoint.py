@@ -3,13 +3,13 @@ from .waypoint import Waypoint
 class ActionWaypoint(Waypoint):
     PAYLOAD_ACTION = "payload"
 
-    def __init__(self, action: str, duration: int, id: str = None, position: list = None):
+    def __init__(self, action: str, duration: int, id: str = None, position: list = None, generated=False):
         self.action = action
         self.duration = duration
 
         # This can be optionally filled later
         self.position = position
-        return super().__init__(type="action", id=id)
+        return super().__init__(type="action", id=id, generated=generated)
 
     @property
     def is_being_recharged(self):
@@ -28,7 +28,8 @@ class ActionWaypoint(Waypoint):
             'type': self.type,
             'action': self.action,
             'duration': self.duration,
-            'id': self.id
+            'id': self.id,
+            'generated': self.generated
         }
 
         if self.start_time and self.end_time:
@@ -46,7 +47,8 @@ class ActionWaypoint(Waypoint):
             action=waypoint_dict['action'],
             duration=waypoint_dict['duration'],
             id=waypoint_dict.get('id'),
-            position=waypoint_dict.get('position')
+            position=waypoint_dict.get('position'),
+            generated=waypoint_dict.get('generated')
         )
 
     def __repr__(self):

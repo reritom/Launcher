@@ -752,15 +752,224 @@ class Scheduler:
         schedule = Schedule.from_schedules(schedules)
         return schedule
 
+    @staticmethod
+    def strip_flight_plan(flight_plan: FlightPlan):
+        """
+        For a given flight plan, remove any scheduler generated attributes
+        """
+        # Remove timings
+        for waypoint in flight_plan.waypoints:
+            if waypoint.is_approximated:
+                waypoint.start_time = None
+                waypoint.end_time = None
+
+        # Remove refuel waypoints
+        finished = False
+        while not finished:
+            for index, waypoint in enumerate(flight_plan.waypoints):
+                if index is 0:
+                    continue
+
+                # Handle any refuel injection waypoints
+                if waypoint.is_action and waypoint.is_being_recharged:
+                    if flight_plan.waypoints[index - 1].is_leg and flight_plan.waypoints[index + 1].is_leg:
+                        # Remove the waypoint and rejoin the legs
+                        flight_plan.waypoints[index - 1].positions['to'] = flight_plan.waypoints[index + 1].to_pos
+                        flight_plan.waypoints.pop(index)
+                        flight_plan.waypoints.pop(index + 1)
+                        break
+                    elif flight_plan.waypoints[index + 1].is_action:
+                        # TODO, here we might need to consider whether the action is being overlapped or not
+                        flight_plan.waypoints.pop(index)
+                        break
+                    else:
+                        raise NotImplementedError()
+            else:
+                finished = True
+
+        # Remove any launching waiting buffers
+        first_waypoint = flight_plan.waypoints[0]
+        if first_waypoint.generated and first_waypoint.is_leg:
+            # This is a waiting leg for early launchs
+
+            # If the next waypoint is a generated action waypoint, then it is part of the early launch buffer
+            second_waypoint = flight_plan.waypoints[1]
+            if second_waypoint.is_action and second_waypoint.generated:
+                flight_plan.waypoints.pop(1)
+
+            # Rejoin the legs
+            flight_plan.waypoints[1].positions['from'] = first_waypoint.from_pos
+
+            # Delete the first leg
+            flight_plan.waypoints.pop(0)
+
+        # Remove any landing buffers
+        last_waypoint = flight_plan.waypoints[-1]
+        if last_waypoint.generated and last_waypoint.is_leg:
+            # This is a waiting leg for late landing
+
+            # If the waypoint before is a generated action waypoint, then it is part of the early launch buffer
+            second_to_last_waypoint = flight_plan.waypoints[-2]
+            if second_to_last_waypoint.is_action and second_to_last_waypoint.generated:
+                second_to_last_waypoint.waypoints.pop(-2)
+
+            # Rejoin the legs
+            flight_plan.waypoints[-2].positions['to'] = last_waypoint.to_pos
+
+            # Delete the last leg
+            flight_plan.waypoints.pop(-1)
+
+
+    def stretch_flight_plan(self, flight_plan: FlightPlan, start_delta: datetime.datetime, end_delta: datetime.datetime):
+        """
+        For a given flight plan, add buffer waypoints at the beginning and end of the flight plan
+        """
+        launch_tower = self.get_tower_by_id(flight_plan.starting_tower)
+        landing_tower = self.get_tower_by_id(flight_plan.finishing_tower)
+        bot = self.get_bot_schema_by_model(flight_plan.bot_model)
+
+        # TODO, Really the towers should define their waiting areas
+        early_launch_leg = LegWaypoint(
+            positions={
+                'from': launch_tower.position,
+                'to': [launch_tower.position[0], launch_tower.position[1], launch_tower.position[2] + 20]
+            },
+            generated=True
+        )
+        # Insert the new first leg and modify the existing leg
+        flight_plan.waypoints.insert(0, early_launch_leg)
+        flight_plan.waypoints[1].positions['from'] = early_launch_leg.to_pos
+
+        early_launch_leg_time = distance_between(early_launch_leg.to_pos, early_launch_leg.from_pos) / bot.speed
+
+        # For the remaining time difference, create a waiting action
+        if early_launch_leg_time > start_delta:
+            early_launch_waiting_action = ActionWaypoint(
+                duration=(start_delta-early_launch_leg_time).seconds,
+                action="waiting",
+                generated=True
+            )
+            flight_plan.waypoints.insert(1, early_launch_waiting_action)
+
+        late_landing_leg = LegWaypoint(
+            positions={
+                'from': [landing_tower.position[0], landing_tower.position[1], landing_tower.position[2] + 20],
+                'to': launch_tower.position
+            },
+            generated=True
+        )
+
+        # Insert the new final leg and modify the existing final leg
+        flight_plan.waypoints.append(late_landing_leg)
+        flight_plan.waypoints[-2].positions['to'] = late_landing_leg.from_pos
+
+        late_landing_leg_time = distance_between(late_landing_leg.to_pos, late_landing_leg.from_pos) / bot.speed
+
+        # For the remaining time difference, create a waiting action
+        if late_landing_leg_time > end_delta:
+            late_landing_waiting_action = ActionWaypoint(
+                duration=(end_delta-late_landing_leg_time).seconds,
+                action="waiting",
+                generated=True
+            )
+            flight_plan.waypoints.insert(-2, late_landing_waiting_action)
+
+
+    def fit_flight_plan_into_tower_allocations(self, flight_plan: FlightPlan) -> bool:
+        """
+        For a given flight plan, manipulate it to fit into the available launch and landing allocation slots
+        This operates on the FlightPlan in place and returns a boolean if it is able to and has successfully done so
+        """
+        launch_tower = self.get_tower_by_id(flight_plan.starting_tower)
+        landing_tower = self.get_tower_by_id(flight_plan.finishing_tower)
+
+        # Find the nearest launch window (looking before the launch time)
+        nearest_intervals = launch_tower.get_nearest_intervals_to_window_end(flight_plan.start_time)
+        if not nearest_intervals:
+            print(f"No intervals available for launch day {flight_plan.start_time} at tower {launch_tower} flight plan {flight_plan.id}")
+            return False
+
+        # A list of tuples of (interval, window start, window end) for each interval
+        nearest_windows = [
+            (interval,) + launch_tower.get_window_for_interval(interval)
+            for interval in nearest_intervals
+        ]
+
+        # Consider only the windows before the launch time
+        nearest_windows = [
+            nearest_window
+            for nearest_window in nearest_windows
+            if nearest_window[2] <= flight_plan.start_time
+        ]
+
+        if not nearest_intervals:
+            print(f"No intervals available for launch window of flight plan {flight_plan.id}")
+            return False
+
+        # Consider the first nearest window
+        nearest_start_window = nearest_windows[0]
+
+        # Now find the nearest landing window (looking after the landing time)
+        nearest_intervals = landing_tower.get_nearest_intervals_to_window_start(flight_plan.end_time)
+        if not nearest_intervals:
+            print(f"No intervals available for landing day {flight_plan.end_time} at tower {landing_tower} flight plan {flight_plan.id}")
+            return False
+
+        # A list of tuples of (interval, window start, window end) for each interval
+        nearest_windows = [
+            (interval,) + landing_tower.get_window_for_interval(interval)
+            for interval in nearest_intervals
+        ]
+
+        # Consider only the windows after the landing time
+        nearest_windows = [
+            nearest_window
+            for nearest_window in nearest_windows
+            if nearest_window[2] >= flight_plan.end_time
+        ]
+
+        if not nearest_intervals:
+            print(f"No intervals available for landing window of flight plan {flight_plan.id}")
+            return False
+
+        # Consider the first nearest window
+        nearest_end_window = nearest_windows[0]
+
+        # Copy the flight plan and strip it to make it raw
+        flight_plan_copy = flight_plan.copy()
+        self.strip_flight_plan(flight_plan_copy)
+
+        # Stretch the flight plan
+        self.stretch_flight_plan(
+            flight_plan=flight_plan_copy,
+            start_delta=flight_plan.start_time - nearest_start_window[2],
+            end_delta=nearest_end_window[1] - flight_plan.end_time
+        )
+
+        # Recalculate the flight plan to add the refueling points
+        self.recalculate_flight_plan(flight_plan_copy)
+
+        # If the recalculated flight plan has the same number of refuel waypoint as the original, apply it to the original
+        if flight_plan_copy.refuel_waypoint_count == flight_plan.refuel_waypoint_count:
+            flight_plan.copy_from(flight_plan_copy)
+            return True
+
+        # Else recurse on the stretched flight plan and then apply it to the original
+        return self.fit_flight_plan_into_tower_allocations(flight_plan_copy)
+
     def allocate_flight_plan(self, flight_plan: FlightPlan) -> bool:
         """
         For a given flight plan, attempt to make all the resource allocations and fallback if it fails
         """
         # Allocate the launch window
+        launch_window_allocation_id = ''
 
         # Allocate the landing window
+        landing_window_allocation_id = ''
 
         # Allocate bot and add tracking notes
+        bot_allocation_id = ''
 
         # Allocate payload and add tracking notes
+        payload_allocation_id = ''
         ...

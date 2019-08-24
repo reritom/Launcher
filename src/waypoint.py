@@ -13,12 +13,14 @@ class Waypoint:
     def from_dict(cls, waypoint_dict: dict) -> 'Waypoint':
         raise NotImplementedError()
 
-    def __init__(self, type, id=None):
+    def __init__(self, type, id=None, generated=False):
         self.type = type
         self.id = str(uuid.uuid4()) if not id else id
 
         self.start_time = None
         self.end_time = None
+
+        self.generated = generated if generated else None
 
     @property
     def is_approximated(self):

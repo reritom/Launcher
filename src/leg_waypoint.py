@@ -1,9 +1,9 @@
 from .waypoint import Waypoint
 
 class LegWaypoint(Waypoint):
-    def __init__(self, positions: dict, id=None):
+    def __init__(self, positions: dict, id=None, generated=False):
         self.positions = positions
-        return super().__init__(type="leg", id=id)
+        return super().__init__(type="leg", id=id, generated=generated)
 
     @property
     def from_pos(self) -> tuple:
