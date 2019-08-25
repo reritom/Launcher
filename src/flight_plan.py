@@ -5,6 +5,7 @@ from .leg_waypoint import LegWaypoint
 from .action_waypoint import ActionWaypoint
 from .waypoint import Waypoint
 from .bot_schema import BotSchema
+from .flight_plan_meta import FlightPlanMeta
 from .tools import distance_between
 
 class FlightPlan:
@@ -35,13 +36,24 @@ class FlightPlan:
         bot_model: str = None,
         id: str = None,
         starting_tower: str = None,
-        finishing_tower: str = None
+        finishing_tower: str = None,
+        meta: FlightPlanMeta = None
     ):
         self.waypoints = waypoints if waypoints else []
         self.bot_model = bot_model if bot_model else None
         self.starting_tower = starting_tower
         self.finishing_tower = finishing_tower
         self.id = id if id else str(uuid.uuid4())
+
+        # Meta is the dynamic component
+        self.meta = meta if meta else None
+
+    def set_meta(self, meta: FlightPlanMeta):
+        self.meta = meta
+
+    @property
+    def has_meta(self):
+        return True if self.meta else False
 
     def add_waypoint(self, waypoint: Waypoint):
         # TODO add some validations to do with positions
@@ -173,7 +185,8 @@ class FlightPlan:
             ],
             bot_model=self.bot_model,
             starting_tower=self.starting_tower,
-            finishing_tower=self.finishing_tower
+            finishing_tower=self.finishing_tower,
+            meta=self.meta
         )
 
     def copy_from(self, other_flight_plan: 'FlightPlan'):
@@ -189,6 +202,7 @@ class FlightPlan:
         self.starting_tower = other_flight_plan.starting_tower
         self.finishing_tower = other_flight_plan.finishing_tower
         self.id = other_flight_plan.id
+        self.meta = other_flight_plan.meta
 
     @property
     def start_time(self):

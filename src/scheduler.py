@@ -52,6 +52,10 @@ class Scheduler:
         # The flight time a bot should have remaining when it initiates the refueling, it needs to be greater than the refuel_duration
         self.remaining_flight_time_at_refuel = remaining_flight_time_at_refuel
 
+        # To track allocations made per flight plan, mapped to their related deallocator
+        # This is like a mock db
+        self.flight_plan_allocation_to_deallocator = {}
+
         assert remaining_flight_time_at_refuel > refuel_duration
 
     def determine_schedule_from_waypoint_eta(self, flight_plan: FlightPlan, waypoint_eta: datetime.datetime, waypoint_id: str) -> Schedule:
@@ -74,6 +78,9 @@ class Scheduler:
 
         # Add the position to the action waypoints
         self.add_positions_to_action_waypoints(flight_plan)
+
+        # TODO Determine if there is a bot available? or find the required payload type or id -> bot types
+        # TODO Create transit schedule
 
         # For each refueling waypoint in the flight plan, create a resupply flight plan
         refuel_flight_plans_per_waypoint_id = self.create_refuel_flight_plans(flight_plan)
@@ -115,9 +122,6 @@ class Scheduler:
         print(f"Schedule contains {len(schedule.flight_plans)} flight plans")
         return schedule
 
-    def validate_schedule_availabilities(self, schedule: Schedule):
-        pass
-
     def calculate_sourcing_schedule(self, schedule: Schedule) -> Schedule:
         pass
 
@@ -126,6 +130,7 @@ class Scheduler:
         Perform some basic assertions on the flight plan to ensure it will work
         """
         # The associated bot model needs to exist in our context
+        assert flight_plan.has_meta, "No meta attached to the flight plan"
         assert flight_plan.bot_model in [bot.model for bot in self.bot_schemas], "Unknown bot model"
 
         # Make sure the flight plan starts at a tower
@@ -629,17 +634,66 @@ class Scheduler:
         Return a schedule for transporting a payload from tower A to tower B
         considering inflight refuels, tower based refuels, and waypoint optimisation.
         If the schedule is high priority, it will go from tower A to tower B directly
+
+        #TODO, For now we dont consider the flight gradients
         """
         # Confirm the payload_id is located at the prescribed tower
 
-        # Find the best route
+        # TODO if not high priority, find the best route passing through different towers
 
-        # Create a flight plan for that route considering bot cruise altitude and climb rates
+        # Create a flight plan for that route considering bot cruise altitude TODO (and climb rates)
+        flight_plan_meta = FlightPlanMeta(
+            payload_id=payload_id
+        )
 
-        # Create any refuel plans
+        waypoints = [
+            LegWaypoint( # Leg to cruising altitude
+                positions={
+                    'from': from_tower.position,
+                    'to': [
+                        from_tower.position[0],
+                        from_tower.position[1],
+                        from_tower.position[2] + bot.cruising_altitude
+                    ]
+                }
+            ),
+            LegWaypoint( # Main cruise between the two towers
+                positions={
+                    'from': [
+                        from_tower.position[0],
+                        from_tower.position[1],
+                        from_tower.position[2] + bot.cruising_altitude
+                    ],
+                    'to': [
+                        to_tower.position[0],
+                        to_tower.position[1],
+                        to_tower.position[2] + bot.cruising_altitude
+                    ]
+                }
+            ),
+            LegWaypoint( # Landing leg
+                positions={
+                    'from': [
+                        to_tower.position[0],
+                        to_tower.position[1],
+                        to_tower.position[2] + bot.cruising_altitude
+                    ],
+                    'to': to_tower.position
+                }
+            )
+        ]
+
+        flight_plan = FlightPlan(
+            waypoints=waypoints,
+            starting_tower=from_tower.id,
+            finishing_tower=to_tower.id,
+            meta=flight_plan_meta
+        )
+
+        # Create the schedule refuel plans
         pass
 
-    def cancel_active_schedule(self, schedule: Schedule):
+    def cancel_active_schedule(self, schedule: Schedule, now: datetime.datetime):
         """
         For a given schedule in progress, create flight plans to handle return to base for all active flights
         """
@@ -819,7 +873,6 @@ class Scheduler:
             # Delete the last leg
             flight_plan.waypoints.pop(-1)
 
-
     def stretch_flight_plan(self, flight_plan: FlightPlan, start_delta: datetime.datetime, end_delta: datetime.datetime):
         """
         For a given flight plan, add buffer waypoints at the beginning and end of the flight plan
@@ -873,7 +926,6 @@ class Scheduler:
                 generated=True
             )
             flight_plan.waypoints.insert(-2, late_landing_waiting_action)
-
 
     def fit_flight_plan_into_tower_allocations(self, flight_plan: FlightPlan) -> bool:
         """
@@ -959,17 +1011,79 @@ class Scheduler:
 
     def allocate_flight_plan(self, flight_plan: FlightPlan) -> bool:
         """
-        For a given flight plan, attempt to make all the resource allocations and fallback if it fails
+        For a given flight plan, attempt to make all the resource allocations and fallback if it fails.
+        Calls to this function should be wrapped in a try-except to catch AllocationError(s).
+        If successful, the allocations are stored in self.flight_plan_allocation_to_deallocator
         """
-        # Allocate the launch window
-        launch_window_allocation_id = ''
+        def deallocate(allocation_id_to_deallocator: dict):
+            """
+            Mini function for deallocating any allocations made if all allocations cant be made
+            """
+            for deallocation_key, deallocator in allocation_id_to_deallocator.items():
+                deallocator(deallocation_key)
 
-        # Allocate the landing window
-        landing_window_allocation_id = ''
+        allocation_id_to_deallocator = {}
+        launch_tower = self.get_tower_by_id(flight_plan.starting_tower)
+        landing_tower = self.get_tower_by_id(flight_plan.finishing_tower)
 
-        # Allocate bot and add tracking notes
-        bot_allocation_id = ''
+        # Find the nearest launch window (looking before the launch time)
+        nearest_intervals = launch_tower.get_nearest_intervals_to_window_end(flight_plan.start_time)
+        if not nearest_intervals:
+            print(f"No intervals available for launch day {flight_plan.start_time} at tower {launch_tower} flight plan {flight_plan.id}")
+            return False
 
-        # Allocate payload and add tracking notes
-        payload_allocation_id = ''
-        ...
+        # A list of tuples of (interval, window start, window end) for each interval
+        nearest_windows = [
+            (interval,) + launch_tower.get_window_for_interval(interval)
+            for interval in nearest_intervals
+        ]
+
+        nearest_window = nearest_windows[0]
+        if nearest_window[2] == flight_plan.start_time:
+            try:
+                allocation_id = launch_tower.allocate_launch(
+                    flight_plan_id=flight_plan.id,
+                    date=flight_plan.start_time,
+                    interval=nearest_window[0]
+                )
+                allocation_id_to_deallocator[allocation_id] = launch_tower.deallocate_launch
+            except Exception as e:
+                print(f"Failed to allocate launch window for {flight_plan.id}")
+                raise e from None
+        else:
+            print(f"Failed to allocate launch window for {flight_plan.id}, interval mismatch")
+            return False
+
+        # Now find the nearest landing window (looking after the landing time)
+        nearest_intervals = landing_tower.get_nearest_intervals_to_window_start(flight_plan.end_time)
+        if not nearest_intervals:
+            print(f"No intervals available for landing day {flight_plan.end_time} at tower {landing_tower} flight plan {flight_plan.id}")
+            return False
+
+        # A list of tuples of (interval, window start, window end) for each interval
+        nearest_windows = [
+            (interval,) + landing_tower.get_window_for_interval(interval)
+            for interval in nearest_intervals
+        ]
+
+        nearest_window = nearest_windows[0]
+        if nearest_window[1] == flight_plan.end_time:
+            try:
+                allocation_id = landing_tower.allocate_landing(
+                    flight_plan_id=flight_plan.id,
+                    date=flight_plan.start_time,
+                    interval=nearest_window[0]
+                )
+                allocation_id_to_deallocator[allocation_id] = landing_tower.deallocate_landing
+            except Exception as e:
+                print(f"Failed to allocate landing for {flight_plan.id}")
+                deallocate(allocation_id_to_deallocator)
+                raise e from None
+        else:
+            print(f"Failed to allocate landing window for {flight_plan.id}, interval mismatch")
+            deallocate(allocation_id_to_deallocator)
+            return False
+
+        # Store the allocation data in the class context
+        self.flight_plan_allocation_to_deallocator[flight_plan.id] = allocation_id_to_deallocator
+        return True

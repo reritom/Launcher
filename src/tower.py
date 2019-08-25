@@ -58,18 +58,16 @@ class Tower:
             id=tower_dict['id']
         )
 
-    def allocate_launch(self, flight_plan_id: str, launch_time: datetime.datetime) -> bool:
+    def allocate_launch(self, flight_plan_id: str, date: datetime.datetime, interval: int) -> bool:
         """
         For a given flight plan, attempt to allocate the launch time
         """
-        launch_window_start = launch_time - datetime.timedelta(seconds=self.launch_time)
-
         for resource in self.launch_allocator.resources:
             try:
                 allocation_id = self.launch_allocator.allocate_resource(
                     resource_id=resource.id,
-                    from_datetime=launch_window_start,
-                    to_datetime=launch_time
+                    date=date,
+                    interval=interval
                 )
                 return allocation_id
             except AllocationError:
@@ -78,18 +76,22 @@ class Tower:
         # None of the launchers are available for this launch window
         raise AllocationError("Unable to allocate launch")
 
-    def allocate_landing(self, flight_plan_id: str, landing_time: datetime.datetime) -> str:
+    def deallocate_launch(self, allocation_id: str):
+        """
+        For a given allocation id, attempt to deallocate it from all launch resources
+        """
+        self.launch_allocator.delete_allocation(allocation_id)
+
+    def allocate_landing(self, flight_plan_id: str, date: datetime.datetime, interval: int) -> str:
         """
         For a given flight plan, attempt to allocate the launch time
         """
-        landing_window_end = landing_time - datetime.timedelta(seconds=self.landing_time)
-
         for resource in self.landing_allocator.resources:
             try:
                 allocation_id = self.landing_allocator.allocate_resource(
                     resource_id=resource.id,
-                    from_datetime=landing_time,
-                    to_datetime=landing_window_end
+                    date=date,
+                    interval=interval
                 )
                 return allocation_id
             except AllocationError:
@@ -97,6 +99,12 @@ class Tower:
 
         # None of the landers are available for this landing window
         raise AllocationError("Unable to allocate landing")
+
+    def deallocate_landing(self, allocation_id: str):
+        """
+        For a given allocation id, attempt to deallocate it from all landing resources
+        """
+        self.landing_allocator.delete_allocation(allocation_id)
 
     def get_nearest_landing_time(self, reference_time: datetime.datetime) -> datetime.datetime:
         landing_window_start = reference_time
