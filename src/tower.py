@@ -93,7 +93,8 @@ class Tower:
                 allocation_id = self.launch_allocator.allocate_resource(
                     resource_id=resource.id,
                     date=date,
-                    interval=interval
+                    interval=interval,
+                    flight_plan_id=flight_plan_id
                 )
                 return allocation_id
             except AllocationError:
@@ -117,7 +118,8 @@ class Tower:
                 allocation_id = self.landing_allocator.allocate_resource(
                     resource_id=resource.id,
                     date=date,
-                    interval=interval
+                    interval=interval,
+                    flight_plan_id=flight_plan_id
                 )
                 return allocation_id
             except AllocationError:
@@ -132,17 +134,57 @@ class Tower:
         """
         self.landing_allocator.delete_allocation(allocation_id)
 
-    def allocate_bot_bay(self, ...):
-        ...
+    def allocate_bot_bay(self, bot_id: str, from_datetime: datetime.datetime, to_datetime: datetime.datetime) -> str:
+        """
+        For a given bot id and time period, allocate the first available bay or raise an AllocationError.
+        If successful, return the allocation id.
+        """
+        for resource in self.bot_bay_allocator.resources:
+            try:
+                allocation_id = self.bot_bay_allocator.allocate_resource(
+                    resource_id=resource.id,
+                    from_datetime=from_datetime,
+                    to_datetime=to_datetime,
+                    bot_id=bot_id
+                )
+                return allocation_id
+            except AllocationError:
+                pass
 
-    def deallocate_boy_bay(self, allocation_id: str):
-        ...
+        # None of the bays are available for this window
+        raise AllocationError("Unable to allocate bot bay")
 
-    def allocate_payload_bay(self, ...):
-        ...
+    def deallocate_bot_bay(self, allocation_id: str):
+        """
+        For a given allocation id, attempt to deallocate it from all bot bay resources
+        """
+        self.bot_bay_allocator.delete_allocation(allocation_id)
+
+    def allocate_payload_bay(self, payload_id: str, from_time: datetime.datetime, to_time: datetime.datetime) -> str:
+        """
+        For a given payload id and time period, allocate the first available bay or raise an AllocationError.
+        If successful, return the allocation id.
+        """
+        for resource in self.payload_bay_allocator.resources:
+            try:
+                allocation_id = self.payload_bay_allocator.allocate_resource(
+                    resource_id=resource.id,
+                    from_datetime=from_datetime,
+                    to_datetime=to_datetime,
+                    payload_id=payload_id
+                )
+                return allocation_id
+            except AllocationError:
+                pass
+
+        # None of the bays are available for this window
+        raise AllocationError("Unable to allocate payload bay")
 
     def deallocate_payload_bay(self, allocation_id: str):
-        ...
+        """
+        For a given allocation id, attempt to deallocate it from all payload bay resources
+        """
+        self.payload_bay_allocator.delete_allocation(allocation_id)
 
     def get_nearest_landing_time(self, reference_time: datetime.datetime) -> datetime.datetime:
         landing_window_start = reference_time
