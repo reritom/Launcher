@@ -25,19 +25,6 @@ class BotSchema:
 
         return instance
 
-    @classmethod
-    def from_catalogue_file(cls, file_path: str) -> List['Bot']:
-        """
-        A catalogue file is a file containing a list of bot definitions
-        """
-        with open(file_path, 'r') as f:
-            catalogue = json.load(f)
-
-        return [
-            cls.from_dict(bot_dict)
-            for bot_dict in catalogue['bot_models']
-        ]
-
     @property
     def is_refueler(self):
         return self.bot_type.lower() == "refueler"

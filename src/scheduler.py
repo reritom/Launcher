@@ -130,7 +130,6 @@ class Scheduler:
         Perform some basic assertions on the flight plan to ensure it will work
         """
         # The associated bot model needs to exist in our context
-        assert flight_plan.has_meta, "No meta attached to the flight plan"
         assert flight_plan.bot_model in [bot.model for bot in self.bot_schemas], "Unknown bot model"
 
         # Make sure the flight plan starts at a tower
@@ -690,7 +689,7 @@ class Scheduler:
             meta=flight_plan_meta
         )
 
-        # Create the schedule refuel plans
+        # Create the schedule refuel plansP
         pass
 
     def cancel_active_schedule(self, schedule: Schedule, now: datetime.datetime):

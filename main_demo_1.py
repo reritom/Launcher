@@ -1,4 +1,5 @@
 from src.flight_plan import FlightPlan
+from src.flight_plan_meta import FlightPlanMeta
 from src.scheduler import Scheduler
 from src.simulator import Simulator
 from src.tower import Tower
@@ -8,6 +9,7 @@ from src.payload import Payload
 from src.payload_schema import PayloadSchema
 from src.tools import Encoder
 from src.resource_manager import ResourceManager, Resource
+from src.resource_tools import construct_flight_plan_meta, get_bot_schema_by_model, get_payload_schema_by_id
 import datetime, sys, os, json
 
 """
@@ -18,7 +20,15 @@ DEMO_NUMBER = 1
 
 """ Common """
 towers = Tower.from_catalogue_file(f"./examples/demo_{DEMO_NUMBER}/towers_1.json")
-bot_schemas = BotSchema.from_catalogue_file(f"./examples/demo_{DEMO_NUMBER}/bots_1.json")
+
+with open(f"./examples/demo_{DEMO_NUMBER}/bots_1.json", 'r') as f:
+    bots_dict = json.load(f)
+    bot_schemas_list = bots_dict['bot_models']
+
+bot_schemas = [
+    BotSchema.from_dict(schema_dict)
+    for schema_dict in bot_schemas_list
+]
 
 with open(f'./examples/demo_{DEMO_NUMBER}/towers_1.json', 'r') as f:
     tower_json = json.load(f)
@@ -27,18 +37,29 @@ with open(f'./examples/demo_{DEMO_NUMBER}/towers_1.json', 'r') as f:
 with open(f"./examples/demo_{DEMO_NUMBER}/payloads_1.json", 'r') as f:
     payloads_json = json.load(f)
 
+payload_schemas = [
+    PayloadSchema(
+        id=payload_model['id'],
+        compatable_bots=[
+            get_bot_schema_by_model(model, bot_schemas)
+            for model in payload_model['compatable_bots']
+        ]
+    )
+    for payload_model in payloads_json['payload_models']
+]
+
 payloads = [
-    Payload(id=payload['id'], schema=payload['payload_model'])
+    Payload(
+        id=payload['id'],
+        schema=get_payload_schema_by_id(
+            payload['payload_model'],
+            payload_schemas
+        )
+    )
     for payload in payloads_json['payloads']
 ]
 
 payload_manager = ResourceManager(payloads)
-
-# The payloads need an initial allocation for location context coming from the Tower jsons
-payload_schemas = [
-    PayloadSchema(id=payload_model['id'], compatable_bots=payload_model['compatable_bots'])
-    for payload_model in payloads_json['payload_models']
-]
 
 # Create the bot manager
 with open(f"./examples/demo_{DEMO_NUMBER}/bots_1.json", 'r') as f:
@@ -60,6 +81,8 @@ for tower in tower_json:
     for payload_id in tower.get('initial_payloads', []):
         payload_manager.set_tracker(payload_id, {"tower_id": tower['id']})
 
+with open(f"./examples/demo_{DEMO_NUMBER}/flight_plan_1.json", 'r') as f:
+    flight_plan_dict = json.load(f)
 
 scheduler = Scheduler(
     towers=towers,
@@ -86,7 +109,14 @@ if not 'raw' in os.listdir(os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}')):
 
 """ 1) a) Section for showing flight plan running out of fuel """
 print("Part 1")
+meta = construct_flight_plan_meta(
+    payload_id=flight_plan_dict['payload_id'],
+    payloads=payloads,
+    bots=bots
+)
+
 flight_plan = FlightPlan.from_file(f"./examples/demo_{DEMO_NUMBER}/flight_plan_1.json")
+flight_plan.set_meta(meta)
 scheduler.add_positions_to_action_waypoints(flight_plan)
 simulator.simulate_flight_plan(flight_plan)#, save_path=os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', 'raw_flight_plan.mp4'))
 
@@ -97,6 +127,7 @@ with open(os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', 'raw_flight_pl
 """ 1) b) Section showing the same flight plan but with refuel points added (without schedule)"""
 print("Part 2")
 flight_plan = FlightPlan.from_file(f"./examples/demo_{DEMO_NUMBER}/flight_plan_1.json")
+flight_plan.set_meta(meta)
 schedule = scheduler.determine_schedule_from_launch_time(flight_plan, when)
 simulator.simulate_flight_plan(flight_plan)#, save_path=os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', 'calculated_flight_plan.mp4'))
 
@@ -107,6 +138,7 @@ with open(os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', 'calculated_fl
 """ 1) c) Section showing the schedule for the refuelers """
 print("Part 3")
 flight_plan = FlightPlan.from_file(f"./examples/demo_{DEMO_NUMBER}/flight_plan_1.json")
+flight_plan.set_meta(meta)
 schedule = scheduler.determine_schedule_from_launch_time(flight_plan, when)
 simulator.simulate_schedule(schedule)#, save_path=os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', f'schedule.mp4'))
 

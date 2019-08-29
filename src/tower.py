@@ -41,7 +41,7 @@ class Tower:
         )
 
         # Create the resource managers for the bot and payload bays
-        payload_bay_resources = [Resource(id=i) for i in range(payload_bay_capacity)]
+        payload_bay_resources = [Resource(id=i) for i in range(payload_capacity)]
         self.payload_bay_allocator = ResourceAllocator(
             resources=payload_bay_resources
         )
