@@ -24,13 +24,11 @@ class TestFlightPlan(unittest.TestCase):
         flight_plan = FlightPlan(
             waypoints=waypoints,
             starting_tower='TowerOne',
-            finishing_tower='TowerOne',
-            bot_model="MarkI"
+            finishing_tower='TowerOne'
         )
 
         dict_representation = flight_plan.to_dict()
         expected_representation = {
-           'bot_model':'MarkI',
            'id': None, # We mask this
            'starting_tower': 'TowerOne',
            'finishing_tower': 'TowerOne',
@@ -108,15 +106,13 @@ class TestFlightPlan(unittest.TestCase):
         flight_plan_1 = FlightPlan(
             waypoints=waypoints_1,
             starting_tower='TowerOne',
-            finishing_tower='TowerOne',
-            bot_model="MarkI"
+            finishing_tower='TowerOne'
         )
 
         flight_plan_2 = FlightPlan(
             waypoints=waypoints_2,
             starting_tower='TowerOne',
-            finishing_tower='TowerOne',
-            bot_model="MarkI"
+            finishing_tower='TowerOne'
         )
 
         self.assertEqual(flight_plan_1, flight_plan_2)
@@ -142,8 +138,7 @@ class TestFlightPlan(unittest.TestCase):
         flight_plan = FlightPlan(
             waypoints=waypoints,
             starting_tower='TowerOne',
-            finishing_tower='TowerOne',
-            bot_model="MarkI"
+            finishing_tower='TowerOne'
         )
 
         self.assertNotEqual(flight_plan, 1)

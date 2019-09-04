@@ -9,5 +9,5 @@ class PayloadSchema:
     A payload schema defined the payload and the compatable bots for transportation of the payload.
     It isn't a payload in itself
     """
-    id: str
+    model: str
     compatable_bots: List[BotSchema]

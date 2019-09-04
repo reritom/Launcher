@@ -1,7 +1,7 @@
 {
   "payload_models": [
     {
-      "id": "refuel_payload_mk1",
+      "model": "refuel_payload_mk1",
       "description": "A payload for performing inflight refuels",
       "compatable_bots": [
         "GypsyMarkI", "RefuelerMarkI", "RefuelerMarkII"
@@ -9,7 +9,7 @@
       "owner": "Seres"
     },
     {
-      "id": "example_client_payload_1",
+      "model": "example_client_payload_1",
       "description": "A payload designed by a client for their purpose",
       "compatable_bots": [
         "GypsyMarkI"

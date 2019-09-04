@@ -301,7 +301,7 @@ class Simulator:
             plt.show()
 
     def get_flight_plan_duration(self, flight_plan):
-        bot_schema = self.get_bot_schemas_by_model(flight_plan.bot_model)
+        bot_schema = self.get_bot_schemas_by_model(flight_plan.meta.bot_model)
 
         duration = 0
         for waypoint in flight_plan.waypoints:
@@ -317,7 +317,7 @@ class Simulator:
         Return a dataframe representation of the flight plan containing the coordinates and time in seconds
         from the start of the flight
         """
-        bot_schema = self.get_bot_schemas_by_model(flight_plan.bot_model)
+        bot_schema = self.get_bot_schemas_by_model(flight_plan.meta.bot_model)
         duration = self.get_flight_plan_duration(flight_plan)
 
         time, x, y, z, being_refueled, fuel_percent = [], [], [], [], [], []

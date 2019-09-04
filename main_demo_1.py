@@ -9,7 +9,7 @@ from src.payload import Payload
 from src.payload_schema import PayloadSchema
 from src.tools import Encoder
 from src.resource_manager import ResourceManager, Resource
-from src.resource_tools import construct_flight_plan_meta, get_bot_schema_by_model, get_payload_schema_by_id
+from src.resource_tools import construct_flight_plan_meta, get_bot_schema_by_model, get_payload_schema_by_model
 import datetime, sys, os, json
 
 """
@@ -39,7 +39,7 @@ with open(f"./examples/demo_{DEMO_NUMBER}/payloads_1.json", 'r') as f:
 
 payload_schemas = [
     PayloadSchema(
-        id=payload_model['id'],
+        model=payload_model['model'],
         compatable_bots=[
             get_bot_schema_by_model(model, bot_schemas)
             for model in payload_model['compatable_bots']
@@ -51,7 +51,7 @@ payload_schemas = [
 payloads = [
     Payload(
         id=payload['id'],
-        schema=get_payload_schema_by_id(
+        schema=get_payload_schema_by_model(
             payload['payload_model'],
             payload_schemas
         )
@@ -110,10 +110,12 @@ if not 'raw' in os.listdir(os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}')):
 """ 1) a) Section for showing flight plan running out of fuel """
 print("Part 1")
 meta = construct_flight_plan_meta(
-    payload_id=flight_plan_dict['payload_id'],
+    payload_id="1",
     payloads=payloads,
     bots=bots
 )
+meta.bot_model = get_bot_schema_by_model("GypsyMarkI", bot_schemas) # This shouldnt be needed
+assert meta.bot_model is not None
 
 flight_plan = FlightPlan.from_file(f"./examples/demo_{DEMO_NUMBER}/flight_plan_1.json")
 flight_plan.set_meta(meta)
@@ -128,7 +130,7 @@ with open(os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', 'raw_flight_pl
 print("Part 2")
 flight_plan = FlightPlan.from_file(f"./examples/demo_{DEMO_NUMBER}/flight_plan_1.json")
 flight_plan.set_meta(meta)
-schedule = scheduler.determine_schedule_from_launch_time(flight_plan, when)
+schedule = scheduler.determine_schedule(flight_plan=flight_plan, launch_time=when)
 simulator.simulate_flight_plan(flight_plan)#, save_path=os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', 'calculated_flight_plan.mp4'))
 
 with open(os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', 'calculated_flight_plan.json'), 'w') as f:
@@ -139,7 +141,7 @@ with open(os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', 'calculated_fl
 print("Part 3")
 flight_plan = FlightPlan.from_file(f"./examples/demo_{DEMO_NUMBER}/flight_plan_1.json")
 flight_plan.set_meta(meta)
-schedule = scheduler.determine_schedule_from_launch_time(flight_plan, when)
+schedule = scheduler.determine_schedule(flight_plan=flight_plan, launch_time=when)
 simulator.simulate_schedule(schedule)#, save_path=os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', f'schedule.mp4'))
 
 with open(os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', f'schedule.json'), 'w') as f:

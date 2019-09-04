@@ -25,7 +25,6 @@ class FlightPlan:
                 else LegWaypoint.from_dict(waypoint_dict)
                 for waypoint_dict in flight_plan_dict.get('waypoints', [])
                 ],
-            bot_model=flight_plan_dict['bot_model'],
             starting_tower=flight_plan_dict['starting_tower'],
             finishing_tower=flight_plan_dict['finishing_tower'],
             id=flight_plan_dict.get('id')
@@ -33,14 +32,12 @@ class FlightPlan:
 
     def __init__(self,
         waypoints: list = None,
-        bot_model: str = None,
         id: str = None,
         starting_tower: str = None,
         finishing_tower: str = None,
         meta: FlightPlanMeta = None
     ):
         self.waypoints = waypoints if waypoints else []
-        self.bot_model = bot_model if bot_model else None
         self.starting_tower = starting_tower
         self.finishing_tower = finishing_tower
         self.id = id if id else str(uuid.uuid4())
@@ -59,13 +56,6 @@ class FlightPlan:
         # TODO add some validations to do with positions
         # TODO, undo estimations
         self.waypoints.append(waypoint)
-
-    def set_bot(self, bot_model: str):
-        """
-        Flight plans don't have a bot as such, but they do require a bot type which is determined by payload type
-        and specification. The bot here is used when calculating schedules and timings
-        """
-        self.bot_model = bot_model
 
     def is_definite(self) -> bool:
         """
@@ -145,7 +135,6 @@ class FlightPlan:
                 for waypoint
                 in self.waypoints
             ],
-            'bot_model': self.bot_model,
             'starting_tower': self.starting_tower,
             'finishing_tower': self.finishing_tower,
             'id': self.id
@@ -166,13 +155,11 @@ class FlightPlan:
                 return False
 
         print("Waypoints match")
-        print(self.bot_model, other.bot_model)
         print(self.starting_tower, other.starting_tower)
         print(self.finishing_tower, other.finishing_tower)
 
         return (
-            self.bot_model == other.bot_model
-            and self.starting_tower == other.starting_tower
+            self.starting_tower == other.starting_tower
             and self.finishing_tower == other.finishing_tower
         )
 
@@ -183,7 +170,6 @@ class FlightPlan:
                 waypoint.copy()
                 for waypoint in self.waypoints
             ],
-            bot_model=self.bot_model,
             starting_tower=self.starting_tower,
             finishing_tower=self.finishing_tower,
             meta=self.meta
@@ -198,7 +184,6 @@ class FlightPlan:
             for waypoint in other_flight_plan.waypoints
         ]
 
-        self.bot_model = other_flight_plan.bot_model
         self.starting_tower = other_flight_plan.starting_tower
         self.finishing_tower = other_flight_plan.finishing_tower
         self.id = other_flight_plan.id

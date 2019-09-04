@@ -1,19 +1,22 @@
 import math as maths
-from typing import List, Optional, Dict, Generator
+from typing import List, Optional, Dict, Generator, Set
 import json, datetime, random
 
 from .schedule import Schedule
 from .flight_plan import FlightPlan
+from .flight_plan_meta import FlightPlanMeta
 from .partial_flight_plan import PartialFlightPlan
 from .tower import Tower
 from .waypoint import Waypoint
 from .leg_waypoint import LegWaypoint
 from .action_waypoint import ActionWaypoint
-from .bot import BotSchema
+from .bot_schema import BotSchema
+from .bot import Bot
 from .payload_schema import PayloadSchema
+from .payload import Payload
 from .resource_manager import ResourceManager
-from .tools import distance_between, find_middle_position_by_ratio, Encoder
-
+from .tools import distance_between, find_middle_position_by_ratio, Encoder, ScheduleError
+from .resource_tools import get_payload_schema_by_model
 
 class Scheduler:
     def __init__(
@@ -35,7 +38,7 @@ class Scheduler:
         self.bot_schemas = bot_schemas
 
         # Schemas for payloads
-        self.payloads_schemas = payload_schemas
+        self.payload_schemas = payload_schemas
 
         # The actual bot physical resource manager
         self.bot_manager = bot_manager
@@ -58,57 +61,68 @@ class Scheduler:
 
         assert remaining_flight_time_at_refuel > refuel_duration
 
-    def determine_schedule_from_waypoint_eta(self, flight_plan: FlightPlan, waypoint_eta: datetime.datetime, waypoint_id: str) -> Schedule:
-        """
-        Determine the schedule based on the time the client wants the bot to reach a certain waypoint.
-        If the schedules requires the first launch to be in the past, the schedule is marked as unapplicable.
-        """
-        assert waypoint_id in [waypoint.id for waypoint in flight_plan.waypoints]
-        self.validate_flight_plan(flight_plan)
-
-        # Add an refueling waypoints to the flight plan
-        self.recalculate_flight_plan(flight_plan)
-
-        # Flight plans don't consider absolute timings, so here will will add some approximates
-        self.approximate_timings_based_on_waypoint_eta(
-            flight_plan=flight_plan,
-            waypoint_id=waypoint_id,
-            waypoint_eta=waypoint_eta
-        )
-
-        # Add the position to the action waypoints
-        self.add_positions_to_action_waypoints(flight_plan)
-
-        # TODO Determine if there is a bot available? or find the required payload type or id -> bot types
-        # TODO Create transit schedule
-
-        # For each refueling waypoint in the flight plan, create a resupply flight plan
-        refuel_flight_plans_per_waypoint_id = self.create_refuel_flight_plans(flight_plan)
-
-        schedule_dict = {
-            'flight_plan': flight_plan,
-            'related_sub_flight_plans': refuel_flight_plans_per_waypoint_id
-        }
-
-        schedule = Schedule(raw_schedule=schedule_dict)
-        print(f"Schedule contains {len(schedule.flight_plans)} flight plans")
-        return schedule
-
-    def determine_schedule_from_launch_time(self, flight_plan: FlightPlan, launch_time: datetime.datetime) -> Schedule:
+    def determine_schedule(
+        self,
+        flight_plan: FlightPlan,
+        launch_time: datetime.datetime = None,
+        landing_time: datetime.datetime = None,
+        waypoint_eta: datetime.datetime = None,
+        waypoint_id: str = None
+        ) -> Schedule:
         """
         For a given flight plan, determine when all the supporting bots need to be deployed and their
         respective flight plans
         """
+        assert launch_time or landing_time or (waypoint_eta and waypoint_id)
+        assert flight_plan.has_meta
+
+        # At this point, the meta could be lacking, so we need to propagate it as much as we can
+        #TODO
+
+        # The associated bot model needs to exist in our context
+        assert flight_plan.meta.bot_model in [bot.model for bot in self.bot_schemas], f"Unknown bot model {flight_plan.meta.bot_model}"
+
         self.validate_flight_plan(flight_plan)
 
         # Add an refueling waypoints to the flight plan
         self.recalculate_flight_plan(flight_plan)
 
         # Flight plans don't consider absolute timings, so here will will add some approximates
-        self.approximate_timings(flight_plan, launch_time)
+        if launch_time:
+            self.approximate_timings(flight_plan, launch_time)
+        elif waypoint_eta and waypoint_id:
+            assert waypoint_id in [waypoint.id for waypoint in flight_plan.waypoints]
+            self.approximate_timings_based_on_waypoint_eta(
+                flight_plan=flight_plan,
+                waypoint_id=waypoint_id,
+                waypoint_eta=waypoint_eta
+            )
+        elif landing_time:
+            self.approximate_timings_based_on_landing_time(
+                flight_plan=flight_plan,
+                landing_time=landing_time
+            )
 
         # Add the position to the action waypoints
         self.add_positions_to_action_waypoints(flight_plan)
+
+        """
+        if flight_plan.meta.payload_id:
+            is it available now?
+            is it located at the start tower or do we need a transit schedule?
+        elif payload_model:
+            which ids are available?
+            are any of them available at this time?
+            is it located at this tower?
+            yes?
+                cool
+            no?
+                is it available for a transit schedule?
+        elif bot_model:
+            is there a bot available?
+            do we need an empty transit?
+        """
+        # Determine if the there is a payload
 
         # For each refueling waypoint in the flight plan, create a resupply flight plan
         refuel_flight_plans_per_waypoint_id = self.create_refuel_flight_plans(flight_plan)
@@ -129,9 +143,6 @@ class Scheduler:
         """
         Perform some basic assertions on the flight plan to ensure it will work
         """
-        # The associated bot model needs to exist in our context
-        assert flight_plan.bot_model in [bot.model for bot in self.bot_schemas], "Unknown bot model"
-
         # Make sure the flight plan starts at a tower
         assert flight_plan.starting_tower in [tower.id for tower in self.towers]
         assert flight_plan.finishing_tower in [tower.id for tower in self.towers]
@@ -162,6 +173,7 @@ class Scheduler:
         """
         For a given flight plan and launch time, approximate the start and end time of each waypoint
         """
+        assert flight_plan.meta.bot_model is not None
 
         for index, waypoint in enumerate(flight_plan.waypoints):
             waypoint.start_time = launch_time if not index else flight_plan.waypoints[index - 1].end_time
@@ -169,18 +181,44 @@ class Scheduler:
             if waypoint.is_action:
                 waypoint.end_time = waypoint.start_time + datetime.timedelta(seconds=waypoint.duration)
             elif waypoint.is_leg:
-                bot = self.get_bot_schema_by_model(flight_plan.bot_model)
+                bot = flight_plan.meta.bot_model
                 waypoint.end_time = waypoint.start_time + datetime.timedelta(seconds=distance_between(waypoint.from_pos, waypoint.to_pos)/bot.speed)
+
+    def approximate_timings_based_on_landing_time(self, flight_plan: FlightPlan, landing_time: datetime.datetime):
+        """
+        For a given flight plan and landing time, approximate the start and end time of each waypoint
+        We cheat by adding an waypoint at the end and then calculating based on waypoint eta
+        """
+        assert flight_plan.meta.bot_model is not None
+
+        dummy_waypoint = ActionWaypoint(
+            action='dummy',
+            duration=1
+        )
+
+        flight_plan.waypoints.append(dummy_waypoint)
+
+        # Calculate normally
+        self.approximate_timings_based_on_waypoint_eta(
+            flight_plan=flight_plan,
+            waypoint_eta=landing_time,
+            waypoint_id=flight_plan.waypoints[-1].id
+        )
+
+        # Delete the dummy
+        flight_plan.waypoints.pop(-1)
 
     def approximate_timings_based_on_waypoint_eta(self, flight_plan: FlightPlan, waypoint_eta: datetime.datetime, waypoint_id: str):
         """
         For a given flight plan and launch time, approximate the start and end time of each waypoint
         """
+        assert flight_plan.meta.bot_model is not None
+
         # Find the index of the waypoint we are interested in
         index = [index for index, waypoint in enumerate(flight_plan.waypoints) if waypoint.id == waypoint_id].pop(0)
         initial_index = index
 
-        bot = self.get_bot_schema_by_model(flight_plan.bot_model)
+        bot = flight_plan.meta.bot_model
 
         # We will work backwards from the index
         while index >= 0:
@@ -215,6 +253,8 @@ class Scheduler:
         """
         For a given flight plan, add any necessary refueling waypoints
         """
+        assert flight_plan.meta.bot_model is not None
+        
         finished = False
         while not finished:
             time_since_last_recharge = 0
@@ -229,7 +269,7 @@ class Scheduler:
                     # Else we will look at the duration of the action, and split it if necessary
                     time_since_last_recharge += waypoint.duration
 
-                    bot_schema = self.get_bot_schema_by_model(flight_plan.bot_model)
+                    bot_schema = flight_plan.meta.bot_model
                     threshold = bot_schema.flight_time - self.remaining_flight_time_at_refuel - self.refuel_duration
                     if time_since_last_recharge > threshold:
                         # If the waypoint is giving performing a recharge, then we can't interrupt it
@@ -309,7 +349,7 @@ class Scheduler:
                     continue
 
                 elif waypoint.is_leg:
-                    bot = self.get_bot_schema_by_model(flight_plan.bot_model)
+                    bot = flight_plan.meta.bot_model
                     leg_time = int(distance_between(waypoint.from_pos, waypoint.to_pos)/bot.speed)
                     time_since_last_recharge += leg_time
 
@@ -353,6 +393,16 @@ class Scheduler:
 
             else:
                 finished = True
+
+        # If there is a refuel needed while performing the refuel, we will end up in a loop
+        giving_refuel_waypoint = flight_plan.giving_refuel_waypoint
+        if giving_refuel_waypoint:
+            for waypoint in flight_plan.waypoints:
+                if waypoint.is_action and waypoint.is_being_recharged:
+                    if waypoint.position and waypoint.position == giving_refuel_waypoint.position:
+                        # We will inject a refuel point into the original potential flight plan to avoid this case
+                        self.add_pre_giving_refuel_waypoint(flight_plan)
+                        assert self.validate_flight_plan(flight_plan)
 
     def add_positions_to_action_waypoints(self, flight_plan: FlightPlan) -> None:
         """
@@ -422,7 +472,6 @@ class Scheduler:
                             waypoint.copy()
                             for waypoint in waypoints
                             ],
-                        bot_model=bot_schema.model,
                         starting_tower=tower.id,
                         finishing_tower=tower.id
                     )
@@ -449,69 +498,36 @@ class Scheduler:
 
             # Get all the base flight plans for refuelers from different towers and different bot models
             dummy_potential_flight_plans = self.create_dummy_refuel_flight_plans(refuel_waypoint)
-            print(f"There are {len(dummy_potential_flight_plans)} potential flight plans")
+            dummy_potential_flight_plans.sort(key=lambda fp: fp.total_distance)
 
-            for potential_flight_plan in dummy_potential_flight_plans:
-                # We need to prevent a recursive loop by pre-recalculating the flight plan
-                flight_plan_copy = potential_flight_plan.copy()
-                self.recalculate_flight_plan(flight_plan_copy)
-                assert self.validate_flight_plan(flight_plan_copy), "Invalid after recalculation"
-                self.add_positions_to_action_waypoints(flight_plan_copy)
+            refuel_schedule = None
+            for flight_plan in dummy_potential_flight_plans:
+                for refuel_bot_schema in self.get_refuel_bot_schemas():
+                    meta = FlightPlanMeta(bot_model=refuel_bot_schema)
 
-                # If there is a refuel needed while performing the refuel, we will end up in a loop
-                giving_refuel_waypoint = flight_plan_copy.giving_refuel_waypoint
-                print(f"Flight plan copy has {len(flight_plan.waypoints)} waypoints")
-                for waypoint in flight_plan_copy.waypoints:
-                    if waypoint.is_action and waypoint.is_being_recharged:
-                        #print("This one is being recharged")
-                        if waypoint.position and waypoint.position == giving_refuel_waypoint.position:
-                            #print("And being recharged at the refuel location")
-                            # We will inject a refuel point into the original potential flight plan to avoid this case
-                            self.add_pre_giving_refuel_waypoint(potential_flight_plan)
-                            assert self.validate_flight_plan(potential_flight_plan)
+                    # Attach the meta
+                    flight_plan.set_meta(meta)
 
-                # General flight plan preperation
-                self.recalculate_flight_plan(potential_flight_plan)
-                assert self.validate_flight_plan(potential_flight_plan)
-                self.add_positions_to_action_waypoints(potential_flight_plan)
-
-                self.approximate_timings_based_on_waypoint_eta(
-                    flight_plan=potential_flight_plan,
-                    waypoint_eta=refuel_waypoint.start_time - datetime.timedelta(seconds=self.refuel_anticipation_buffer),
-                    waypoint_id="critical"
-                )
-
-            # The best suited flight plan is the one with the fewest waypoints
-            flight_plan_waypoint_counts = [
-                len(potential_flight_plan.waypoints)
-                for potential_flight_plan in dummy_potential_flight_plans
-            ]
-            print(f"Waypoint counts are {flight_plan_waypoint_counts}")
-            """
-            priority_flight_plan_index = flight_plan_waypoint_counts.index(min(flight_plan_waypoint_counts))
-            priority_flight_plan = dummy_potential_flight_plans[priority_flight_plan_index]
-            """
-            minimum_waypoints = min(flight_plan_waypoint_counts)
-            priority_waypoints = [
-                potential_flight_plan
-                for potential_flight_plan in dummy_potential_flight_plans
-                if len(potential_flight_plan.waypoints) == minimum_waypoints
-            ]
-
-            priority_flight_plan = random.choice(priority_waypoints)
-
-
-            #print(f"Priority flight plan requires {priority_flight_plan.refuel_waypoint_count} refuel points")
-            #print(priority_flight_plan.to_dict())
+                    # Try to create a schedule and break
+                    try:
+                        refuel_schedule = self.determine_schedule(
+                            flight_plan=flight_plan,
+                            waypoint_eta=refuel_waypoint.start_time - datetime.timedelta(seconds=self.refuel_anticipation_buffer),
+                            waypoint_id="critical"
+                        )
+                        break
+                    except ScheduleError as e:
+                        refuel_schedule = None
+                        continue
+                if refuel_schedule:
+                    break
+            else:
+                raise ScheduleError()
 
             # This needs to be monitored to limit recursion
             calculated_flight_plans_per_waypoint_id[refuel_waypoint.id].append({
-                'flight_plan': priority_flight_plan,
-                'related_sub_flight_plans': (
-                    self.create_refuel_flight_plans(priority_flight_plan, depth + 1)
-                    if potential_flight_plan.refuel_waypoint_count
-                    else {}
-                )
+                'flight_plan': refuel_schedule.flight_plan,
+                'related_sub_flight_plans': refuel_schedule.raw_schedule.get('related_sub_flight_plans')
             })
 
         return calculated_flight_plans_per_waypoint_id
@@ -582,7 +598,7 @@ class Scheduler:
         leg_index = giving_recharge_index - 2
 
         # We want to refuel sufficiently before we reach the recharge position
-        bot = self.get_bot_schema_by_model(flight_plan.bot_model)
+        bot = flight_plan.meta.bot_model
         time_to_refuel_before_end_of_leg = (
             bot.flight_time
             - self.refuel_duration
@@ -689,8 +705,11 @@ class Scheduler:
             meta=flight_plan_meta
         )
 
-        # Create the schedule refuel plansP
-        pass
+        # Create the schedule refuel plans
+        return self.determine_schedule(
+            flight_plan=flight_plan,
+            landing_time=landing_time
+        )
 
     def cancel_active_schedule(self, schedule: Schedule, now: datetime.datetime):
         """
@@ -734,7 +753,6 @@ class Scheduler:
         flight_plan = FlightPlan(
             id=partial_flight_plan.id,
             waypoints=waypoints,
-            bot_model=partial_flight_plan.bot_model,
             starting_tower=starting_tower.id,
             finishing_tower=finishing_tower.id
         )
@@ -794,7 +812,7 @@ class Scheduler:
         # For each full flight plan, determine a schedule
         schedules = []
         for flight_plan in flight_plans:
-            schedule = self.determine_schedule_from_waypoint_eta(
+            schedule = self.determine_schedule(
                 flight_plan=flight_plan,
                 waypoint_eta=critical_time,
                 waypoint_id=flight_plan.waypoints[1].id
@@ -878,7 +896,7 @@ class Scheduler:
         """
         launch_tower = self.get_tower_by_id(flight_plan.starting_tower)
         landing_tower = self.get_tower_by_id(flight_plan.finishing_tower)
-        bot = self.get_bot_schema_by_model(flight_plan.bot_model)
+        bot = flight_plan.meta.bot_model
 
         # TODO, Really the towers should define their waiting areas
         early_launch_leg = LegWaypoint(
@@ -1086,3 +1104,97 @@ class Scheduler:
         # Store the allocation data in the class context
         self.flight_plan_allocation_to_deallocator[flight_plan.id] = allocation_id_to_deallocator
         return True
+
+    def is_bot_available(bot_id: str, from_datetime: datetime.datetime, to_datetime: datetime.datetime) -> bool:
+        """
+        Check if a given bot is available for a given time window
+        """
+        return self.bot_manager.is_allocation_available(
+            resource_id=bot_id,
+            from_datetime=from_datetime,
+            to_datetime=to_datetime
+        )
+
+    def get_bot_tower_for_given_time(bot_id: str, reference_time: datetime.datetime) -> Tower:
+        assert self.bot_manager.trackers.get(bot_id) is not None
+
+        bot_tracker = self.bot_manager.trackers[bot_id]
+
+        if not bot_tracker.tracker:
+            initial_tower_id = bot_tracker.initial_context['tower_id']
+            return self.get_tower_by_id(initial_tower_id)
+
+        # We check the trackers to determine the tower location for the given time
+        for tracker in reversed(payload.trackers):
+            if reference_time <= tracker['to_datetime'] and reference_time >= tracker['from_datetime']:
+                # The payload is allocated for this time and has not static location
+                return None
+            elif reference_time > tracker['to_datetime']:
+                return self.get_tower_by_id(tracker['tower_id'])
+
+    def get_available_bots_for_given_window(bot_model: str, from_datetime: datetime.datetime, to_datetime: datetime.datetime) -> List[Bot]:
+        """
+        Return a list of bots of a given model available at the given time window
+        """
+        return [
+            bot
+            for bot in self.bot_manager.resources
+            if bot.schema.model == bot_model
+            and self.bot_manager.is_allocation_available(
+                resource_id=bot.id,
+                from_datetime=from_datetime,
+                to_datetime=to_datetime
+            )
+        ]
+
+    def is_payload_available(payload_id: str, from_datetime: datetime.datetime, to_datetime: datetime.datetime) -> bool:
+        """
+        Check if a given payload is available for a given time window
+        """
+        return self.payload_manager.is_allocation_available(
+            resource_id=payload_id,
+            from_datetime=from_datetime,
+            to_datetime=to_datetime
+        )
+
+    def get_payload_tower_for_given_time(payload_id: str, reference_time: datetime.datetime) -> Optional[Tower]:
+        assert self.payload_manager.trackers.get(payload_id) is not None
+
+        payload_tracker = self.payload_manager.trackers[payload_id]
+
+        if not payload_tracker.tracker:
+            initial_tower_id = payload_tracker.initial_context['tower_id']
+            return self.get_tower_by_id(initial_tower_id)
+
+        # We check the trackers to determine the tower location for the given time
+        for tracker in reversed(payload.trackers):
+            if reference_time <= tracker['to_datetime'] and reference_time >= tracker['from_datetime']:
+                # The payload is allocated for this time and has not static location
+                return None
+            elif reference_time > tracker['to_datetime']:
+                return self.get_tower_by_id(tracker['tower_id'])
+
+    def get_available_payloads_for_given_window(payload_model: str, from_datetime: datetime.datetime, to_datetime: datetime.datetime) -> List[Payload]:
+        """
+        Return a list of payloads of a given model available at the given time window
+        """
+        return [
+            payload
+            for payload in self.payload_manager.resources
+            if payload.schema.model == payload_model
+            and self.payload_manager.is_allocation_available(
+                resource_id=payload.id,
+                from_datetime=from_datetime,
+                to_datetime=to_datetime
+            )
+        ]
+
+    def get_refuel_bot_schemas(self) -> Set[BotSchema]:
+        """
+        TODO, Refuel payloads should be determined by payload schema type
+        """
+        refuel_payload_schema = get_payload_schema_by_model('refuel_payload_mk1', self.payload_schemas)
+        return {
+            self.get_bot_schema_by_model(compatable_bot_model)
+            for compatable_bot_model in refuel_payload_schema.compatable_bots
+        }

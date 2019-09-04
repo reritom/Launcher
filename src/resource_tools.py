@@ -30,12 +30,12 @@ def get_bot_schema_by_model(model: str, schemas: List[BotSchema]) -> Optional[Bo
         if schema.model == model:
             return schema
 
-def get_payload_schema_by_id(id: str, schemas: List[PayloadSchema]) -> Optional[PayloadSchema]:
+def get_payload_schema_by_model(model: str, schemas: List[PayloadSchema]) -> Optional[PayloadSchema]:
     """
-    For a given list of payload schemas, return the payload schema for the given id
+    For a given list of payload schemas, return the payload schema for the given model
     """
     for schema in schemas:
-        if schema.id == id:
+        if schema.model == model:
             return schema
 
 def construct_flight_plan_meta(
@@ -53,7 +53,7 @@ def construct_flight_plan_meta(
     assert isinstance(bots, list)
 
     if payload_id and not payload_model:
-        payload_model = get_payload_by_id(payload_id, payloads).schema.id
+        payload_model = get_payload_by_id(payload_id, payloads).schema.model
 
     if bot_id and not bot_model:
         bot_model = get_bot_by_id(bot_id, bots).schema.model

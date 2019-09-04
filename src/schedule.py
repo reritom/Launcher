@@ -1,5 +1,5 @@
 import datetime
-from typing import List
+from typing import List, Optional
 
 class Schedule:
     def __init__(self, raw_schedule: dict):
@@ -14,6 +14,18 @@ class Schedule:
 
     def set_unapplicable(self):
         self.applicable = False
+
+    @property
+    def flight_plan(self) -> Optional['FlightPlan']:
+        return self.raw_schedule.get('flight_plan')
+
+    @property
+    def sub_flight_plans(self) -> List['FlightPlan']:
+        return [
+            flight_plan
+            for flight_plan in self.flight_plans
+            if flight_plan != self.flight_plan
+        ]
 
     @classmethod
     def from_schedules(cls, schedules: List['Schedule']) -> 'Schedule':
