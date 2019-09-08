@@ -34,7 +34,7 @@ class LegWaypoint(Waypoint):
         )
 
     def __repr__(self):
-        return f"Waypoint {self.type} from {self.from_pos} to {self.to_pos}"
+        return f"Waypoint(Type: {self.type}, FromPosition: {self.from_pos}, ToPosition: {self.to_pos})"
 
     def __eq__(self, other):
         return (

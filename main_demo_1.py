@@ -66,7 +66,10 @@ with open(f"./examples/demo_{DEMO_NUMBER}/bots_1.json", 'r') as f:
     bot_json = json.load(f)
 
 bots = [
-    Bot(id=bot['id'], schema=bot['bot_model'])
+    Bot(
+        id=bot['id'],
+        schema=get_bot_schema_by_model(bot['bot_model'], bot_schemas)
+    )
     for bot in bot_json['bots']
 ]
 

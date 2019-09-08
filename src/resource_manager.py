@@ -21,17 +21,17 @@ class ResourceManager:
 
         self.trackers[resource_id] = ResourceTracker(initial_context)
 
-    def is_allocation_available(resource_id: str, from_datetime: datetime.datetime, to_datetime: datetime.datetime) -> bool:
+    def is_allocation_available(self, resource_id: str, from_datetime: datetime.datetime, to_datetime: datetime.datetime) -> bool:
         return self.allocator.is_allocation_available(
             resource_id=resource_id,
             from_datetime=from_datetime,
             to_datetime=to_datetime
         )
 
-    def allocate_resource(resource_id: str, from_datetime: datetime.datetime, tower_id: datetime.datetime, **kwargs) -> bool:
+    def allocate_resource(self, resource_id: str, from_datetime: datetime.datetime, to_datetime: datetime.datetime, **kwargs) -> bool:
         tracker_dict = {
             'from_datetime': from_datetime,
-            'to_datetime': to_datetime,
+            'to_datetime': to_datetime
         }
         tracker_dict.update(kwargs)
         self.trackers[resource_id].append(tracker_dict)
@@ -39,6 +39,6 @@ class ResourceManager:
         return self.allocator.allocate_resource(
             resource_id=resource_id,
             from_datetime=from_datetime,
-            to_datetime=to_datetime
+            to_datetime=to_datetime,
             **kwargs
         )

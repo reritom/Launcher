@@ -6,6 +6,9 @@ from .flight_plan_meta import FlightPlanMeta
 from .bot import Bot
 from .bot_schema import BotSchema
 
+def print_waypoints(flight_plan):
+    print('\n'.join([repr(waypoint) for waypoint in flight_plan.waypoints]))
+
 def get_payload_by_id(id: str, payloads: List[Payload]) -> Optional[Payload]:
     """
     For a given list of payloads, return the payload with the given id

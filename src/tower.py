@@ -196,5 +196,10 @@ class Tower:
         launch_window_end = reference_time
         ...
 
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, type(self)):
+            return False
+        return self.id == other.id
+
     def __repr__(self):
         return "Tower {}".format(self.position)

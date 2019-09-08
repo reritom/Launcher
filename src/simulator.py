@@ -62,6 +62,8 @@ class Heatmap:
 
 class Simulator:
     def __init__(self, bot_schemas, towers):
+        assert isinstance(bot_schemas, list)
+        assert isinstance(bot_schemas[0], BotSchema)
         self.bot_schemas = bot_schemas
         self.towers = towers
 
@@ -301,7 +303,8 @@ class Simulator:
             plt.show()
 
     def get_flight_plan_duration(self, flight_plan):
-        bot_schema = self.get_bot_schemas_by_model(flight_plan.meta.bot_model)
+        assert flight_plan.meta.bot_model, flight_plan.meta
+        bot_schema = self.get_bot_schemas_by_model(flight_plan.meta.bot_model.model)
 
         duration = 0
         for waypoint in flight_plan.waypoints:
@@ -317,7 +320,9 @@ class Simulator:
         Return a dataframe representation of the flight plan containing the coordinates and time in seconds
         from the start of the flight
         """
-        bot_schema = self.get_bot_schemas_by_model(flight_plan.meta.bot_model)
+        assert flight_plan.meta.bot_model, flight_plan.meta
+
+        bot_schema = self.get_bot_schemas_by_model(flight_plan.meta.bot_model.model)
         duration = self.get_flight_plan_duration(flight_plan)
 
         time, x, y, z, being_refueled, fuel_percent = [], [], [], [], [], []

@@ -17,6 +17,13 @@ class ResourceTracker:
     def most_recent_track(self) -> tuple:
         return self.tracker[-1]
 
+    def append(self, data: dict) -> None:
+        return self.tracker.append(data)
+
     @property
     def most_recent_track_data(self) -> dict:
         return self.most_recent_track[2]
+
+    @property
+    def initial_context(self):
+        return self.initial_data

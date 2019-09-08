@@ -5,6 +5,9 @@ from typing import List
 class ScheduleError(Exception):
     pass
 
+class TrackerError(Exception):
+    pass
+
 def distance_between(position_a: tuple, position_b: tuple) -> tuple:
     return maths.sqrt(
         abs(position_a[0] - position_b[0])**2
