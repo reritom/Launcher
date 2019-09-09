@@ -45,12 +45,28 @@ class FlightPlan:
         # Meta is the dynamic component
         self.meta = meta if meta else None
 
+        # Used for restoring the original state
+        self._original_parameters = {
+            'waypoints': [waypoint for waypoint in self.waypoints],
+            'starting_tower': self.starting_tower,
+            'finishing_tower': self.finishing_tower,
+            'id': self.id,
+            'meta': self.meta
+        }
+
     def set_meta(self, meta: FlightPlanMeta):
         self.meta = meta
 
     @property
     def has_meta(self):
         return True if self.meta else False
+
+    def reset(self):
+        self.waypoints = [waypoint for waypoint in self._original_parameters['waypoints']]
+        self.id = self._original_parameters['id']
+        self.starting_tower = self._original_parameters['starting_tower']
+        self.finishing_tower =  self._original_parameters['finishing_tower']
+        self.meta = self._original_parameters['meta']
 
     def add_waypoint(self, waypoint: Waypoint):
         # TODO add some validations to do with positions

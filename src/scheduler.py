@@ -55,6 +55,9 @@ class Scheduler:
         # The flight time a bot should have remaining when it initiates the refueling, it needs to be greater than the refuel_duration
         self.remaining_flight_time_at_refuel = remaining_flight_time_at_refuel
 
+        # The maximum seconds that a flight plan can be stretched to try and make it fit into tower launch and landing windows
+        self.maximum_flight_plan_stretch_duration = 500
+
         # To track allocations made per flight plan, mapped to their related deallocator
         # This is like a mock db
         self.flight_plan_allocation_to_deallocator = {}
@@ -104,6 +107,12 @@ class Scheduler:
         # Add the position to the action waypoints
         self.add_positions_to_action_waypoints(flight_plan)
 
+        # Attempt to stretch the flight plan to fit it into launch and landing slots
+        if not self.fit_flight_plan_into_tower_allocations(flight_plan):
+            raise ScheduleError("Unable to fit flight plan into tower launch and landing windows")
+
+        self.allocate_flight_plan(flight_plan)
+
         flight_plan_start_tower = self.get_tower_by_id(flight_plan.starting_tower)
         flight_plan_finish_tower = self.get_tower_by_id(flight_plan.finishing_tower)
         assert flight_plan_start_tower is not None
@@ -114,21 +123,30 @@ class Scheduler:
 
         if flight_plan.meta.payload_id:
             # Is it available now?
+            print(f"Payload id {flight_plan.meta.payload_id} trackers are {self.payload_manager.trackers[flight_plan.meta.payload_id].tracker}")
             available = self.is_payload_available(
                 payload_id=flight_plan.meta.payload_id,
                 from_datetime=flight_plan.start_time - datetime.timedelta(seconds=flight_plan_start_tower.launch_time),
                 to_datetime=flight_plan.end_time + datetime.timedelta(seconds=flight_plan_finish_tower.landing_time)
             )
+            print(f"Payload id {flight_plan.meta.payload_id} trackers are {self.payload_manager.trackers[flight_plan.meta.payload_id].tracker}")
 
             if not available:
                 raise ScheduleError("Specified payload id unavailable for given flight plan period")
 
-            # Is it located at the start tower or do we need a transit schedule?
             payload_tower = self.get_payload_tower_for_given_time(
                 payload_id=flight_plan.meta.payload_id,
                 reference_time=flight_plan.start_time
             )
 
+            print(f"Allocating payload {flight_plan.meta.payload_id}")
+            self.payload_manager.allocate_resource(
+                resource_id=flight_plan.meta.payload_id,
+                from_datetime=flight_plan.start_time - datetime.timedelta(seconds=flight_plan_start_tower.launch_time),
+                to_datetime=flight_plan.end_time + datetime.timedelta(seconds=flight_plan_finish_tower.landing_time)
+            )
+
+            # Is it located at the start tower or do we need a transit schedule?
             if payload_tower != flight_plan_start_tower:
                 # We need a transit schedule
                 transit_schedule = self.create_transit_schedule(
@@ -145,6 +163,7 @@ class Scheduler:
                 from_datetime=flight_plan.start_time - datetime.timedelta(seconds=flight_plan_start_tower.launch_time),
                 to_datetime=flight_plan.end_time + datetime.timedelta(seconds=flight_plan_finish_tower.landing_time)
             )
+            print(f"Available payloads for model {flight_plan.meta.payload_model} are {[payload.id for payload in available_payloads]}")
 
             if not available_payloads:
                 raise ScheduleError("No payloads available for specified model")
@@ -185,11 +204,22 @@ class Scheduler:
 
                 for payload in available_payloads:
                     try:
+                        from_tower = self.get_payload_tower_for_given_time(
+                            payload_id=payload.id,
+                            reference_time=flight_time.start_time
+                        )
+
+                        allocation_id = self.payload_manager.allocate_resource(
+                            resource_id=payload.id,
+                            from_datetime=flight_plan.start_time - datetime.timedelta(seconds=flight_plan_start_tower.launch_time),
+                            to_datetime=flight_plan.end_time + datetime.timedelta(seconds=flight_plan_finish_tower.landing_time),
+                            related_flight_plan=flight_plan.id,
+                            from_tower=flight_plan_start_tower.id,
+                            to_tower=flight_plan_finish_tower.id
+                        )
+
                         transit_schedule = self.create_transit_schedule(
-                            from_tower=self.get_payload_tower_for_given_time(
-                                payload_id=payload.id,
-                                reference_time=flight_time.start_time
-                            ),
+                            from_tower=from_tower,
                             to_tower=flight_plan_start_tower,
                             arrival_time=flight_plan.start_time - datetime.timedelta(hours=1), # TODO, actually determine the best value for this
                             high_priority=True, # Actually determine and implement this
@@ -198,10 +228,16 @@ class Scheduler:
                         break
                     except ScheduleError as e:
                         print(f"Failed to create transit schedule for payload {payload_id_index} / {len(available_ids)}")
+                        self.payload_manager.allocator.deallocate(allocation_id)
+                        continue
+                    except AllocationError as e:
+                        print(f"Failed to allocate payload {e}")
+                        self.payload_manager.allocator.deallocate(allocation_id)
                         continue
                 else:
                     raise ScheduleError("Unable to create transit schedule")
         elif flight_plan.meta.bot_model:
+            print("Creating schedule by bot model")
             # Is there a bot available?
             available_bots = self.get_available_bots_for_given_window(
                 bot_model=flight_plan.meta.bot_model.model,
@@ -247,11 +283,22 @@ class Scheduler:
 
                 for bot_id_index, bot in enumerate(available_bots):
                     try:
+                        from_tower = self.get_bot_tower_for_given_time(
+                            bot_id=bot.id,
+                            reference_time=flight_plan.start_time
+                        )
+
+                        allocation_id = self.bot_manager.allocate_resource(
+                            resource_id=bot.id,
+                            from_datetime=flight_plan.start_time - datetime.timedelta(seconds=flight_plan_start_tower.launch_time),
+                            to_datetime=flight_plan.end_time + datetime.timedelta(seconds=flight_plan_finish_tower.landing_time),
+                            related_flight_plan=flight_plan.id,
+                            from_tower=flight_plan_start_tower.id,
+                            to_tower=flight_plan_finish_tower.id
+                        )
+
                         transit_schedule = self.create_transit_schedule(
-                            from_tower=self.get_bot_tower_for_given_time(
-                                bot_id=bot.id,
-                                reference_time=flight_plan.start_time
-                            ),
+                            from_tower=from_tower,
                             to_tower=flight_plan_start_tower,
                             arrival_time=flight_plan.start_time - datetime.timedelta(hours=1), # TODO, actually determine the best value for this
                             high_priority=True, # Actually determine and implement this
@@ -260,7 +307,13 @@ class Scheduler:
                         break
                     except ScheduleError as e:
                         print(f"Failed to create transit schedule {bot_id_index} / {len(available_ids)}")
+                        self.bot_manager.allocator.deallocate(allocation_id)
                         continue
+                    except AllocationError as e:
+                        print(f"Failed to allocate bot {e}")
+                        self.bot_manager.allocator.deallocate(allocation_id)
+                        continue
+
                 else:
                     raise ScheduleError("Unable to create transit schedule for bot model")
 
@@ -1312,9 +1365,11 @@ class Scheduler:
         )
 
     def get_payload_tower_for_given_time(self, payload_id: str, reference_time: datetime.datetime) -> Optional[Tower]:
+        print(f"Getting payload {payload_id} tower for given time")
         assert self.payload_manager.trackers.get(payload_id) is not None
 
         payload_tracker = self.payload_manager.trackers[payload_id]
+        print(f"Trackers are {payload_tracker}")
 
         if not payload_tracker.tracker:
             initial_tower_id = payload_tracker.initial_context['tower_id']
@@ -1326,7 +1381,7 @@ class Scheduler:
         for tracker in reversed(payload_tracker.tracker):
             if reference_time <= tracker['to_datetime'] and reference_time >= tracker['from_datetime']:
                 # The payload is allocated for this time and has not static location
-                raise TrackerError("Payload is allocated, can't determine tower for given time")
+                raise TrackerError(f"Payload is allocated, can't determine tower for given time, existing tracker {tracker}, reference time {reference_time}")
             elif reference_time > tracker['to_datetime']:
                 return self.get_tower_by_id(tracker['tower_id'])
         else:
