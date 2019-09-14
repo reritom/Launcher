@@ -52,7 +52,7 @@ class ActionWaypoint(Waypoint):
         )
 
     def __repr__(self):
-        return f"Waypoint(Type: {self.type}, Position: {self.position}, Action: {self.action})"
+        return f"Waypoint(Type: {self.type}, Position: {self.position}, Action: {self.action}, Duration: {self.duration})"
 
     def __eq__(self, other):
         return (

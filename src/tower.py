@@ -4,7 +4,7 @@ from .resource_allocator import ResourceAllocator
 
 import datetime
 import json
-from typing import List
+from typing import List, Tuple
 
 class Tower:
     def __init__(
@@ -185,16 +185,6 @@ class Tower:
         For a given allocation id, attempt to deallocate it from all payload bay resources
         """
         self.payload_bay_allocator.delete_allocation(allocation_id)
-
-    def get_nearest_landing_time(self, reference_time: datetime.datetime) -> datetime.datetime:
-        landing_window_start = reference_time
-        landing_window_end = reference_time - datetime.timedelta(seconds=self.landing_time)
-        ...
-
-    def get_nearest_launch_time(self, reference_time: datetime.datetime) -> datetime.datetime:
-        launch_window_start = reference_time - datetime.timedelta(seconds=self.launch_time)
-        launch_window_end = reference_time
-        ...
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, type(self)):

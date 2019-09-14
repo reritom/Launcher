@@ -47,7 +47,7 @@ class FlightPlan:
 
         # Used for restoring the original state
         self._original_parameters = {
-            'waypoints': [waypoint for waypoint in self.waypoints],
+            'waypoints': [waypoint.copy() for waypoint in self.waypoints],
             'starting_tower': self.starting_tower,
             'finishing_tower': self.finishing_tower,
             'id': self.id,
@@ -56,17 +56,36 @@ class FlightPlan:
 
     def set_meta(self, meta: FlightPlanMeta):
         self.meta = meta
+        self._original_parameters['meta'] = meta
 
     @property
     def has_meta(self):
         return True if self.meta else False
 
     def reset(self):
-        self.waypoints = [waypoint for waypoint in self._original_parameters['waypoints']]
+        self.waypoints = [waypoint.copy() for waypoint in self._original_parameters['waypoints']]
         self.id = self._original_parameters['id']
         self.starting_tower = self._original_parameters['starting_tower']
         self.finishing_tower =  self._original_parameters['finishing_tower']
         self.meta = self._original_parameters['meta']
+
+    def from_original_state(self) -> 'FlightPlan':
+        """
+        Return a new flight plan using the values from the original of the current
+        """
+        return type(self)(
+            waypoints=[waypoint.copy() for waypoint in self._original_parameters['waypoints']],
+            id=self._original_parameters['id'],
+            starting_tower=self._original_parameters['starting_tower'],
+            finishing_tower=self._original_parameters['finishing_tower'],
+            meta=self._original_parameters['meta']
+        )
+
+    def update_original_state_waypoints(self):
+        """
+        Update the original state with the current
+        """
+        self._original_parameters['waypoints'] = [waypoint.copy() for waypoint in self.waypoints]
 
     def add_waypoint(self, waypoint: Waypoint):
         # TODO add some validations to do with positions
@@ -100,8 +119,9 @@ class FlightPlan:
         A flight plan is approximated if all the waypoints are approximated, meaning they have a start time
         and an end time relative to a given launch time.
         """
-        for waypoint in self.waypoints:
+        for index, waypoint in enumerate(self.waypoints):
             if not waypoint.is_approximated:
+                print(f"Waypoint {index}/{len(self.waypoints)} not approximated")
                 return False
 
         return True

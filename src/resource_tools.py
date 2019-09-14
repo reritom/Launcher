@@ -7,7 +7,9 @@ from .bot import Bot
 from .bot_schema import BotSchema
 
 def print_waypoints(flight_plan):
-    print('\n'.join([repr(waypoint) for waypoint in flight_plan.waypoints]))
+    string = '\n'.join([repr(waypoint) for waypoint in flight_plan.waypoints])
+    print(string)
+    return string
 
 def get_payload_by_id(id: str, payloads: List[Payload]) -> Optional[Payload]:
     """

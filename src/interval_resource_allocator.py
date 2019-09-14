@@ -56,13 +56,13 @@ class IntervalResourceAllocator(ResourceAllocator):
         """
         We don't want this parent method to be used, so we hide it for now
         """
-        ...
+        raise NotImplementedError()
 
     def get_window_for_interval(self, date: datetime.datetime, interval: int) -> tuple:
         """
         For a given interval number and date, return a tuple of the start and end of the window
         """
-        assert interval <= daily_intervals
+        assert interval <= self.daily_intervals
         date = datetime.datetime.strptime(date.strftime("%d/%m/%Y"), "%d/%m/%Y")
         return (
             date + interval*self.interval_duration,
