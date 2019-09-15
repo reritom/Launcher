@@ -25,13 +25,15 @@ class IntervalResourceAllocator(ResourceAllocator):
         """
         from_datetime = datetime.datetime.strptime(date.strftime("%d/%m/%Y"), "%d/%m/%Y") + (interval)*self.interval_duration
         to_datetime = from_datetime + (interval+1)*self.interval_duration
+        allocation_blob = {'interval': interval}
+        allocation_blob.update(kwargs)
 
         try:
             allocation_id = super().allocate_resource(
                 resource_id=resource_id,
                 from_datetime=from_datetime,
                 to_datetime=to_datetime,
-                **kwargs
+                **allocation_blob
             )
             self.days.setdefault(date.strftime("%d/%m/%Y"), set())
             self.days[date.strftime("%d/%m/%Y")].add(interval)
@@ -39,6 +41,25 @@ class IntervalResourceAllocator(ResourceAllocator):
         except AllocationError as e:
             # Explicitly catching and throwing to show we expect it
             raise e from None
+
+    def delete_allocation(self, allocation_id: str):
+        """
+        Delete the allocation from the interval day dict in this class, and then perform
+        the deletion in the parent class
+        """
+        allocation = self.get_allocation_by_id(allocation_id)
+
+        if not allocation:
+            return
+
+        allocation_date = allocation.from_datetime.strftime("%d/%m/%Y")
+        if allocation_date in self.days:
+            try:
+                self.days[allocation_date].remove(allocation.blob['interval'])
+            except KeyError as e:
+                print(f"Failed to delete allocation {e}")
+
+        return super().delete_allocation(allocation_id)
 
     def get_available_intervals(self, date: datetime.datetime) -> List[int]:
         """

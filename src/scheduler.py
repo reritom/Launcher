@@ -109,9 +109,16 @@ class Scheduler:
 
         # Attempt to stretch the flight plan to fit it into launch and landing slots
         if not self.fit_flight_plan_into_tower_allocations(flight_plan):
+            self.delete_allocations_for_flight_plan(flight_plan_id=flight_plan.id)
             raise ScheduleError("Unable to fit flight plan into tower launch and landing windows")
 
-        self.allocate_flight_plan(flight_plan)
+        # The allocation ids are stored in self.flight_plan_allocation_to_deallocator
+        allocation_successful = self.allocate_flight_plan(flight_plan)
+
+        if not allocation_successful:
+            print(f"Allocation of flight plan {flight_plan.id} unsuccessful, deleting allocations")
+            self.delete_allocations_for_flight_plan(flight_plan_id=flight_plan.id)
+            raise ScheduleError(f"Failed to allocate flight plan {flight_plan.id}")
 
         flight_plan_start_tower = self.get_tower_by_id(flight_plan.starting_tower)
         flight_plan_finish_tower = self.get_tower_by_id(flight_plan.finishing_tower)
@@ -132,6 +139,7 @@ class Scheduler:
             print(f"Payload id {flight_plan.meta.payload_id} trackers are {self.payload_manager.trackers[flight_plan.meta.payload_id].tracker}")
 
             if not available:
+                self.delete_allocations_for_flight_plan(flight_plan_id=flight_plan.id)
                 raise ScheduleError("Specified payload id unavailable for given flight plan period")
 
             payload_tower = self.get_payload_tower_for_given_time(
@@ -140,11 +148,14 @@ class Scheduler:
             )
 
             print(f"Allocating payload {flight_plan.meta.payload_id}")
-            self.payload_manager.allocate_resource(
+            payload_allocation_id = self.payload_manager.allocate_resource(
                 resource_id=flight_plan.meta.payload_id,
                 from_datetime=flight_plan.start_time - datetime.timedelta(seconds=flight_plan_start_tower.launch_time),
                 to_datetime=flight_plan.end_time + datetime.timedelta(seconds=flight_plan_finish_tower.landing_time)
             )
+
+            # Add the allocation to the context
+            self.flight_plan_allocation_to_deallocator[flight_plan.id][payload_allocation_id] = self.payload_manager.delete_allocation
 
             # Is it located at the start tower or do we need a transit schedule?
             if payload_tower != flight_plan_start_tower:
@@ -156,6 +167,13 @@ class Scheduler:
                     high_priority=True, # Actually determine and implement this
                     payload_id=flight_plan.meta.payload_id
                 )
+
+                # Add all the allocation from the subflight plans to the allocation for this flight plan
+                for sub_flight_plan in transit_schedule.flight_plans:
+                    self.flight_plan_allocation_to_deallocator[flight_plan.id].update(
+                        self.flight_plan_allocation_to_deallocator[sub_flight_plan.id]
+                    )
+
         elif flight_plan.meta.payload_model:
             # Which ids are available?
             available_payloads = self.get_available_payloads_for_given_window(
@@ -166,6 +184,7 @@ class Scheduler:
             print(f"Available payloads for model {flight_plan.meta.payload_model} are {[payload.id for payload in available_payloads]}")
 
             if not available_payloads:
+                self.delete_allocations_for_flight_plan(flight_plan_id=flight_plan.id)
                 raise ScheduleError("No payloads available for specified model")
 
             # Are any of them located at this tower?
@@ -180,7 +199,7 @@ class Scheduler:
             ]
 
             if available_at_this_tower:
-                self.payload_manager.allocate_resource(
+                payload_allocation_id = self.payload_manager.allocate_resource(
                     resource_id=available_at_this_tower[0].id,
                     from_datetime=flight_plan.start_time - datetime.timedelta(seconds=flight_plan_start_tower.launch_time),
                     to_datetime=flight_plan.end_time + datetime.timedelta(seconds=flight_plan_finish_tower.landing_time),
@@ -188,6 +207,9 @@ class Scheduler:
                     from_tower=flight_plan_start_tower.id,
                     to_tower=flight_plan_finish_tower.id
                 )
+
+                # Add this allocation to the context
+                self.flight_plan_allocation_to_deallocator[flight_plan.id][payload_allocation_id] = self.payload_manager.delete_allocation
             else:
                 # We need an empty transit
 
@@ -203,12 +225,12 @@ class Scheduler:
                 )
 
                 for payload in available_payloads:
-                    try:
-                        from_tower = self.get_payload_tower_for_given_time(
-                            payload_id=payload.id,
-                            reference_time=flight_time.start_time
-                        )
+                    from_tower = self.get_payload_tower_for_given_time(
+                        payload_id=payload.id,
+                        reference_time=flight_time.start_time
+                    )
 
+                    try:
                         allocation_id = self.payload_manager.allocate_resource(
                             resource_id=payload.id,
                             from_datetime=flight_plan.start_time - datetime.timedelta(seconds=flight_plan_start_tower.launch_time),
@@ -218,6 +240,13 @@ class Scheduler:
                             to_tower=flight_plan_finish_tower.id
                         )
 
+                        # Add the allocation to the context
+                        self.flight_plan_allocation_to_deallocator[flight_plan.id][allocation_id] = self.payload_manager.delete_allocation
+                    except AllocationError as e:
+                        print(f"Failed to allocate payload {e}")
+                        continue
+
+                    try:
                         transit_schedule = self.create_transit_schedule(
                             from_tower=from_tower,
                             to_tower=flight_plan_start_tower,
@@ -225,16 +254,24 @@ class Scheduler:
                             high_priority=True, # Actually determine and implement this
                             payload_id=payload.id
                         )
+
+                        # Add all the allocation from the subflight plans to the allocation for this flight plan
+                        for sub_flight_plan in transit_schedule.flight_plans:
+                            self.flight_plan_allocation_to_deallocator[flight_plan.id].update(
+                                self.flight_plan_allocation_to_deallocator[sub_flight_plan.id]
+                            )
                         break
                     except ScheduleError as e:
                         print(f"Failed to create transit schedule for payload {payload_id_index} / {len(available_ids)}")
-                        self.payload_manager.allocator.deallocate(allocation_id)
-                        continue
-                    except AllocationError as e:
-                        print(f"Failed to allocate payload {e}")
-                        self.payload_manager.allocator.deallocate(allocation_id)
+
+                        # Delete the allocation we just made for the payload
+                        self.delete_allocations_for_flight_plan(
+                            flight_plan_id=flight_plan.id,
+                            allocation_id=allocation_id
+                        )
                         continue
                 else:
+                    self.delete_allocations_for_flight_plan(flight_plan_id=flight_plan.id)
                     raise ScheduleError("Unable to create transit schedule")
         elif flight_plan.meta.bot_model:
             print("Creating schedule by bot model")
@@ -246,6 +283,7 @@ class Scheduler:
             )
 
             if not available_bots:
+                self.delete_allocations_for_flight_plan(flight_plan_id=flight_plan.id)
                 raise ScheduleError(f"No available bots for specified model {flight_plan.meta.bot_model}")
 
             # Which are available at our tower
@@ -259,7 +297,7 @@ class Scheduler:
             ]
 
             if available_at_this_tower:
-                self.bot_manager.allocate_resource(
+                payload_allocation_id = self.bot_manager.allocate_resource(
                     resource_id=available_at_this_tower[0].id,
                     from_datetime=flight_plan.start_time - datetime.timedelta(seconds=flight_plan_start_tower.launch_time),
                     to_datetime=flight_plan.end_time + datetime.timedelta(seconds=flight_plan_finish_tower.landing_time),
@@ -267,6 +305,9 @@ class Scheduler:
                     from_tower=flight_plan_start_tower.id,
                     to_tower=flight_plan_finish_tower.id
                 )
+
+                # Add this allocation to the context
+                self.flight_plan_allocation_to_deallocator[flight_plan.id][payload_allocation_id] = self.payload_manager.delete_allocation
             else:
                 # We need an empty transit
 
@@ -282,12 +323,12 @@ class Scheduler:
                 )
 
                 for bot_id_index, bot in enumerate(available_bots):
-                    try:
-                        from_tower = self.get_bot_tower_for_given_time(
-                            bot_id=bot.id,
-                            reference_time=flight_plan.start_time
-                        )
+                    from_tower = self.get_bot_tower_for_given_time(
+                        bot_id=bot.id,
+                        reference_time=flight_plan.start_time
+                    )
 
+                    try:
                         allocation_id = self.bot_manager.allocate_resource(
                             resource_id=bot.id,
                             from_datetime=flight_plan.start_time - datetime.timedelta(seconds=flight_plan_start_tower.launch_time),
@@ -297,6 +338,13 @@ class Scheduler:
                             to_tower=flight_plan_finish_tower.id
                         )
 
+                        # Add the allocation to the context
+                        self.flight_plan_allocation_to_deallocator[flight_plan.id][allocation_id] = self.payload_manager.delete_allocation
+                    except AllocationError as e:
+                        print(f"Failed to allocate bot {e}")
+                        continue
+
+                    try:
                         transit_schedule = self.create_transit_schedule(
                             from_tower=from_tower,
                             to_tower=flight_plan_start_tower,
@@ -304,19 +352,26 @@ class Scheduler:
                             high_priority=True, # Actually determine and implement this
                             bot_id=bot.id
                         )
+
+                        # Add all the allocation from the subflight plans to the allocation for this flight plan
+                        for sub_flight_plan in transit_schedule.flight_plans:
+                            self.flight_plan_allocation_to_deallocator[flight_plan.id].update(
+                                self.flight_plan_allocation_to_deallocator[sub_flight_plan.id]
+                            )
                         break
                     except ScheduleError as e:
                         print(f"Failed to create transit schedule {bot_id_index} / {len(available_ids)}")
-                        self.bot_manager.allocator.deallocate(allocation_id)
-                        continue
-                    except AllocationError as e:
-                        print(f"Failed to allocate bot {e}")
-                        self.bot_manager.allocator.deallocate(allocation_id)
+
+                        # Delete the allocation we just made for the payload
+                        self.delete_allocations_for_flight_plan(
+                            flight_plan_id=flight_plan.id,
+                            allocation_id=allocation_id
+                        )
                         continue
 
                 else:
+                    self.delete_allocations_for_flight_plan(flight_plan_id=flight_plan.id)
                     raise ScheduleError("Unable to create transit schedule for bot model")
-
 
         # For each refueling waypoint in the flight plan, create a resupply flight plan
         if flight_plan.refuel_waypoints:
@@ -674,15 +729,12 @@ class Scheduler:
 
         return dummy_flight_plans
 
-    def create_refuel_flight_plans(self, flight_plan: FlightPlan, depth=0) -> dict:
+    def create_refuel_flight_plans(self, flight_plan: FlightPlan) -> dict:
         """
         For a given flight plan, determine the flight plans for any refueling bots
         """
         print("Creating refuel flight plans")
         assert flight_plan.is_approximated
-
-        if depth > 30:
-            raise Exception("Exception")
 
         print(f"There are {len(flight_plan.refuel_waypoints)} refuel waypoints")
         calculated_flight_plans_per_waypoint_id = {}
@@ -1028,6 +1080,9 @@ class Scheduler:
         """
         For a given list of PartialFlightPlans and a critical time, determine the schedule and sub flight plans required
         """
+        # For allocation logic to work, we need all the flight plan ids to be unique
+        assert len({flight_plan.id for flight_plan in partial_flight_plans}) == len(partial_flight_plans), "Flight plans ids aren't unique"
+
         # For each partial flight plan, determine the closest tower and create a full flight plan
         flight_plans = []
         for partial_flight_plan in partial_flight_plans:
@@ -1065,6 +1120,7 @@ class Scheduler:
             and flight_plan.waypoints[1].is_action
             and flight_plan.waypoints[1].action == 'waiting'
         ):
+            print("Extending existing stretch")
             # We are extending an existing stretch
             # Extend the first waiting
             flight_plan.waypoints[1].duration = flight_plan.waypoints[1].duration + start_delta
@@ -1077,6 +1133,7 @@ class Scheduler:
             ):
                 flight_plan.waypoints[-2].duration = flight_plan.waypoints[-2].duration + end_delta
         else:
+            print("Creating new stretch")
             # We are stretching for the first time on this flight plan
             # TODO, Really the towers should define their waiting areas
             early_launch_leg = LegWaypoint(
@@ -1205,6 +1262,8 @@ class Scheduler:
             launch_time=flight_plan.start_time
         )
 
+        print(f"Flight plan start and end before stretching {flight_plan.start_time} {flight_plan.end_time}")
+        print(f"Flight plan waypoint count before stretch {len(flight_plan.waypoints)}")
         # Stretch the flight plan
         self.stretch_flight_plan(
             flight_plan=flight_plan_copy,
@@ -1215,9 +1274,12 @@ class Scheduler:
         # We need to reapproximate the timings to account for the new legs
         self.approximate_timings_based_on_waypoint_eta(
             flight_plan=flight_plan_copy,
-            waypoint_id=flight_plan_copy.waypoints[1].id,
-            waypoint_eta=flight_plan_copy.waypoints[1].start_time
+            waypoint_id=flight_plan_copy.waypoints[2].id,
+            waypoint_eta=flight_plan_copy.waypoints[2].start_time
         )
+
+        print(f"Flight plan waypoint count after stretch {len(flight_plan_copy.waypoints)}")
+        print(f"Flight plan start and end after stretching {flight_plan_copy.start_time} {flight_plan_copy.end_time}")
         self.add_positions_to_action_waypoints(flight_plan_copy)
 
         # Recalculate the flight plan to add the refueling points
@@ -1233,6 +1295,7 @@ class Scheduler:
 
         # If the recalculated flight plan has the same number of refuel waypoint as the original, apply it to the original
         if flight_plan_copy.refuel_waypoint_count == flight_plan.refuel_waypoint_count:
+            print("Breaking fit recursion")
             flight_plan.copy_from(flight_plan_copy)
 
             # Copying doesn't copy approximations so we apply them again
@@ -1244,6 +1307,7 @@ class Scheduler:
             return True
 
         # Else recurse on the stretched flight plan and then apply it to the original
+        print("Recursing fit")
         return self.fit_flight_plan_into_tower_allocations(flight_plan_copy)
 
     def allocate_flight_plan(self, flight_plan: FlightPlan) -> bool:
@@ -1255,14 +1319,6 @@ class Scheduler:
         print("Allocating flight plan")
         assert flight_plan.is_approximated
 
-        def deallocate(allocation_id_to_deallocator: dict):
-            """
-            Mini function for deallocating any allocations made if all allocations cant be made
-            """
-            for deallocation_key, deallocator in allocation_id_to_deallocator.items():
-                deallocator(deallocation_key)
-
-        allocation_id_to_deallocator = {}
         launch_tower = self.get_tower_by_id(flight_plan.starting_tower)
         landing_tower = self.get_tower_by_id(flight_plan.finishing_tower)
 
@@ -1286,12 +1342,12 @@ class Scheduler:
                     date=flight_plan.start_time,
                     interval=nearest_window[0]
                 )
-                allocation_id_to_deallocator[allocation_id] = launch_tower.deallocate_launch
-            except Exception as e:
+                self.flight_plan_allocation_to_deallocator[flight_plan.id][allocation_id] = launch_tower.deallocate_launch
+            except AllocationError as e:
                 print(f"Failed to allocate launch window for {flight_plan.id}")
-                raise e from None
+                return False
         else:
-            print(f"Failed to allocate launch window for {flight_plan.id}, interval mismatch")
+            print(f"Failed to allocate launch window for {flight_plan.id}, interval mismatch, window end is {nearest_window[2]}, start is {flight_plan.start_time}")
             return False
 
         # Now find the nearest landing window (looking after the landing time)
@@ -1314,18 +1370,14 @@ class Scheduler:
                     date=flight_plan.start_time,
                     interval=nearest_window[0]
                 )
-                allocation_id_to_deallocator[allocation_id] = landing_tower.deallocate_landing
-            except Exception as e:
+                self.flight_plan_allocation_to_deallocator[flight_plan.id][allocation_id] = landing_tower.deallocate_landing
+            except AllocationError as e:
                 print(f"Failed to allocate landing for {flight_plan.id}")
-                deallocate(allocation_id_to_deallocator)
-                raise e from None
+                return False
         else:
             print(f"Failed to allocate landing window for {flight_plan.id}, interval mismatch")
-            deallocate(allocation_id_to_deallocator)
             return False
 
-        # Store the allocation data in the class context
-        self.flight_plan_allocation_to_deallocator[flight_plan.id] = allocation_id_to_deallocator
         return True
 
     def is_bot_available(self, bot_id: str, from_datetime: datetime.datetime, to_datetime: datetime.datetime) -> bool:
@@ -1437,3 +1489,20 @@ class Scheduler:
         assert refuel_schemas
         assert isinstance(refuel_schemas[0], BotSchema), f"{type(list(refuel_schemas)[0])} is not a BotSchema"
         return refuel_schemas
+
+    def delete_allocations_for_flight_plan(self, flight_plan_id: str, allocation_id: str = None):
+        """
+        For a given flight plan id, delete all related allocations, or a specific allocation if the id is supplied
+        """
+        if allocation_id:
+            try:
+                deallocator = self.flight_plan_allocation_to_deallocator[flight_plan_id][allocation_id]
+            except KeyError as e:
+                print(f"Failed to retrieve deallocator for flight plan {flight_plan_id} and allocation id {allocation_id}, {e}")
+                return
+
+            return deallocator(allocation_id)
+
+        # Else we are deallocating all of them
+        for allocation_id, deallocator in self.flight_plan_allocation_to_deallocator.get(flight_plan_id, {}):
+            deallocator(allocation_id)
