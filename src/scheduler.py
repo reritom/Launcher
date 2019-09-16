@@ -15,6 +15,7 @@ from .bot import Bot
 from .payload_schema import PayloadSchema
 from .payload import Payload
 from .resource_manager import ResourceManager
+from .resource_allocator import AllocationError
 from .tools import distance_between, find_middle_position_by_ratio, Encoder, ScheduleError, TrackerError
 from .resource_tools import get_payload_schema_by_model, print_waypoints, get_bot_schema_by_model
 
@@ -83,6 +84,8 @@ class Scheduler:
         assert flight_plan.meta.bot_model.model in [bot.model for bot in self.bot_schemas], f"Unknown bot model {flight_plan.meta.bot_model}"
 
         self.validate_flight_plan(flight_plan)
+
+        self.flight_plan_allocation_to_deallocator[flight_plan.id] = {}
 
         # Add an refueling waypoints to the flight plan
         print("Initial recalculation")
@@ -1272,10 +1275,9 @@ class Scheduler:
         )
 
         # We need to reapproximate the timings to account for the new legs
-        self.approximate_timings_based_on_waypoint_eta(
+        self.approximate_timings(
             flight_plan=flight_plan_copy,
-            waypoint_id=flight_plan_copy.waypoints[2].id,
-            waypoint_eta=flight_plan_copy.waypoints[2].start_time
+            launch_time=nearest_launch_window[2]
         )
 
         print(f"Flight plan waypoint count after stretch {len(flight_plan_copy.waypoints)}")
@@ -1290,7 +1292,7 @@ class Scheduler:
         # Recalculate the timings
         self.approximate_timings(
             flight_plan=flight_plan_copy,
-            launch_time=flight_plan_copy.waypoints[0].start_time
+            launch_time=nearest_launch_window[2]
         )
 
         # If the recalculated flight plan has the same number of refuel waypoint as the original, apply it to the original
@@ -1504,5 +1506,5 @@ class Scheduler:
             return deallocator(allocation_id)
 
         # Else we are deallocating all of them
-        for allocation_id, deallocator in self.flight_plan_allocation_to_deallocator.get(flight_plan_id, {}):
+        for allocation_id, deallocator in self.flight_plan_allocation_to_deallocator.get(flight_plan_id, {}).items():
             deallocator(allocation_id)

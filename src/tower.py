@@ -88,10 +88,10 @@ class Tower:
         """
         For a given flight plan, attempt to allocate the launch time
         """
-        for resource in self.launch_allocator.resources:
+        for resource_id in self.launch_allocator.resources:
             try:
                 allocation_id = self.launch_allocator.allocate_resource(
-                    resource_id=resource.id,
+                    resource_id=resource_id,
                     date=date,
                     interval=interval,
                     flight_plan_id=flight_plan_id
@@ -113,10 +113,10 @@ class Tower:
         """
         For a given flight plan, attempt to allocate the launch time
         """
-        for resource in self.landing_allocator.resources:
+        for resource_id in self.landing_allocator.resources:
             try:
                 allocation_id = self.landing_allocator.allocate_resource(
-                    resource_id=resource.id,
+                    resource_id=resource_id,
                     date=date,
                     interval=interval,
                     flight_plan_id=flight_plan_id
@@ -139,10 +139,10 @@ class Tower:
         For a given bot id and time period, allocate the first available bay or raise an AllocationError.
         If successful, return the allocation id.
         """
-        for resource in self.bot_bay_allocator.resources:
+        for resource_id in self.bot_bay_allocator.resources:
             try:
                 allocation_id = self.bot_bay_allocator.allocate_resource(
-                    resource_id=resource.id,
+                    resource_id=resource_id,
                     from_datetime=from_datetime,
                     to_datetime=to_datetime,
                     bot_id=bot_id
@@ -165,10 +165,10 @@ class Tower:
         For a given payload id and time period, allocate the first available bay or raise an AllocationError.
         If successful, return the allocation id.
         """
-        for resource in self.payload_bay_allocator.resources:
+        for resource_id in self.payload_bay_allocator.resources:
             try:
                 allocation_id = self.payload_bay_allocator.allocate_resource(
-                    resource_id=resource.id,
+                    resource_id=resource_id,
                     from_datetime=from_datetime,
                     to_datetime=to_datetime,
                     payload_id=payload_id
