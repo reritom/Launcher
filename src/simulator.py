@@ -9,6 +9,9 @@ import pandas as pd
 from typing import Optional
 import datetime
 import math as maths
+import logging
+
+logger = logging.getLogger(__name__)
 
 # To hide the df.set_value deprecation warning for now
 import warnings
@@ -145,7 +148,7 @@ class Simulator:
                     try:
                         data = dataframe.iloc[dataframe_index]
                     except Exception as e:
-                        print(e)
+                        logger.warning("Failed to read index from dataframe")
                         continue
 
                     # Then we show this bot position
@@ -360,7 +363,7 @@ class Simulator:
                     remaining_fuel = remaining_fuel - 1
             except IndexError as e:
                 # The remaining fuel will be the initial value
-                print(e)
+                #print(e)
                 pass
             finally:
                 #print(f"Remaining fuel {remaining_fuel}, {bot.flight_time}")

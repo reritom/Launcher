@@ -1,3 +1,13 @@
+import datetime, sys, os, json
+import logging
+import logging.config
+
+os.system("rm -f logfile.log")
+logging.config.fileConfig("log.ini", disable_existing_loggers=False)
+logger = logging.getLogger(__name__)
+mpl_logger = logging.getLogger("matplotlib")
+mpl_logger.setLevel(logging.WARNING)
+
 from src.flight_plan import FlightPlan
 from src.flight_plan_meta import FlightPlanMeta
 from src.scheduler import Scheduler
@@ -10,7 +20,6 @@ from src.payload_schema import PayloadSchema
 from src.tools import Encoder
 from src.resource_manager import ResourceManager, Resource
 from src.resource_tools import construct_flight_plan_meta, get_bot_schema_by_model, get_payload_schema_by_model
-import datetime, sys, os, json
 
 """
 This demo creates the raw files for showing the evolution of a single energy deficient flight plan into
@@ -111,7 +120,7 @@ if not 'raw' in os.listdir(os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}')):
     os.mkdir(os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw'))
 
 """ 1) a) Section for showing flight plan running out of fuel """
-print("Part 1")
+logger.info("Part 1")
 meta = construct_flight_plan_meta(
     payload_id="1",
     payloads=payloads,
@@ -130,7 +139,7 @@ with open(os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', 'raw_flight_pl
 
 
 """ 1) b) Section showing the same flight plan but with refuel points added (without schedule)"""
-print("Part 2")
+logger.info("Part 2")
 flight_plan = FlightPlan.from_file(f"./examples/demo_{DEMO_NUMBER}/flight_plan_1.json")
 flight_plan.set_meta(meta)
 schedule = scheduler.determine_schedule(flight_plan=flight_plan, launch_time=when)
@@ -141,7 +150,7 @@ with open(os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', 'calculated_fl
 
 
 """ 1) c) Section showing the schedule for the refuelers """
-print("Part 3")
+logger.info("Part 3")
 flight_plan = FlightPlan.from_file(f"./examples/demo_{DEMO_NUMBER}/flight_plan_1.json")
 flight_plan.set_meta(meta)
 schedule = scheduler.determine_schedule(flight_plan=flight_plan, launch_time=when)

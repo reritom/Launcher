@@ -1,6 +1,9 @@
 import math as maths
 from typing import List, Optional, Dict, Generator, Set
 import json, datetime, random
+import logging
+
+logger = logging.getLogger(__name__)
 
 from .schedule import Schedule
 from .flight_plan import FlightPlan
@@ -88,7 +91,7 @@ class Scheduler:
         self.flight_plan_allocation_to_deallocator[flight_plan.id] = {}
 
         # Add an refueling waypoints to the flight plan
-        print("Initial recalculation")
+        logger.info("Initial recalculation")
         self.recalculate_flight_plan(flight_plan)
 
         # Flight plans don't consider absolute timings, so here will will add some approximates
@@ -113,13 +116,14 @@ class Scheduler:
         # Attempt to stretch the flight plan to fit it into launch and landing slots
         if not self.fit_flight_plan_into_tower_allocations(flight_plan):
             self.delete_allocations_for_flight_plan(flight_plan_id=flight_plan.id)
+            logger.error(f"Failed to fit flight plan {flight_plan.id} into tower allocations")
             raise ScheduleError("Unable to fit flight plan into tower launch and landing windows")
 
         # The allocation ids are stored in self.flight_plan_allocation_to_deallocator
         allocation_successful = self.allocate_flight_plan(flight_plan)
 
         if not allocation_successful:
-            print(f"Allocation of flight plan {flight_plan.id} unsuccessful, deleting allocations")
+            logger.error(f"Allocation of flight plan {flight_plan.id} unsuccessful, deleting allocations")
             self.delete_allocations_for_flight_plan(flight_plan_id=flight_plan.id)
             raise ScheduleError(f"Failed to allocate flight plan {flight_plan.id}")
 
@@ -133,13 +137,13 @@ class Scheduler:
 
         if flight_plan.meta.payload_id:
             # Is it available now?
-            print(f"Payload id {flight_plan.meta.payload_id} trackers are {self.payload_manager.trackers[flight_plan.meta.payload_id].tracker}")
+            logger.debug(f"Payload id {flight_plan.meta.payload_id} trackers are {self.payload_manager.trackers[flight_plan.meta.payload_id].tracker}")
             available = self.is_payload_available(
                 payload_id=flight_plan.meta.payload_id,
                 from_datetime=flight_plan.start_time - datetime.timedelta(seconds=flight_plan_start_tower.launch_time),
                 to_datetime=flight_plan.end_time + datetime.timedelta(seconds=flight_plan_finish_tower.landing_time)
             )
-            print(f"Payload id {flight_plan.meta.payload_id} trackers are {self.payload_manager.trackers[flight_plan.meta.payload_id].tracker}")
+            logger.debug(f"Payload id {flight_plan.meta.payload_id} trackers are {self.payload_manager.trackers[flight_plan.meta.payload_id].tracker}")
 
             if not available:
                 self.delete_allocations_for_flight_plan(flight_plan_id=flight_plan.id)
@@ -150,7 +154,7 @@ class Scheduler:
                 reference_time=flight_plan.start_time
             )
 
-            print(f"Allocating payload {flight_plan.meta.payload_id}")
+            logger.info(f"Allocating payload {flight_plan.meta.payload_id}")
             payload_allocation_id = self.payload_manager.allocate_resource(
                 resource_id=flight_plan.meta.payload_id,
                 from_datetime=flight_plan.start_time - datetime.timedelta(seconds=flight_plan_start_tower.launch_time),
@@ -184,10 +188,11 @@ class Scheduler:
                 from_datetime=flight_plan.start_time - datetime.timedelta(seconds=flight_plan_start_tower.launch_time),
                 to_datetime=flight_plan.end_time + datetime.timedelta(seconds=flight_plan_finish_tower.landing_time)
             )
-            print(f"Available payloads for model {flight_plan.meta.payload_model} are {[payload.id for payload in available_payloads]}")
+            logger.debug(f"Available payloads for model {flight_plan.meta.payload_model} are {[payload.id for payload in available_payloads]}")
 
             if not available_payloads:
                 self.delete_allocations_for_flight_plan(flight_plan_id=flight_plan.id)
+                logger.error(f"No available payloads for {flight_plan.id} with payload model {flight_plan.meta.payload_model.model}")
                 raise ScheduleError("No payloads available for specified model")
 
             # Are any of them located at this tower?
@@ -246,7 +251,7 @@ class Scheduler:
                         # Add the allocation to the context
                         self.flight_plan_allocation_to_deallocator[flight_plan.id][allocation_id] = self.payload_manager.delete_allocation
                     except AllocationError as e:
-                        print(f"Failed to allocate payload {e}")
+                        logger.warning(f"Failed to allocate payload {e}, will look at next")
                         continue
 
                     try:
@@ -265,7 +270,7 @@ class Scheduler:
                             )
                         break
                     except ScheduleError as e:
-                        print(f"Failed to create transit schedule for payload {payload_id_index} / {len(available_ids)}")
+                        logger.warning(f"Failed to create transit schedule for payload {payload_id_index} / {len(available_ids)}, will try the next")
 
                         # Delete the allocation we just made for the payload
                         self.delete_allocations_for_flight_plan(
@@ -277,7 +282,7 @@ class Scheduler:
                     self.delete_allocations_for_flight_plan(flight_plan_id=flight_plan.id)
                     raise ScheduleError("Unable to create transit schedule")
         elif flight_plan.meta.bot_model:
-            print("Creating schedule by bot model")
+            logger.info(f"Creating schedule by bot model for flight plan {flight_plan.id}")
             # Is there a bot available?
             available_bots = self.get_available_bots_for_given_window(
                 bot_model=flight_plan.meta.bot_model.model,
@@ -344,7 +349,7 @@ class Scheduler:
                         # Add the allocation to the context
                         self.flight_plan_allocation_to_deallocator[flight_plan.id][allocation_id] = self.payload_manager.delete_allocation
                     except AllocationError as e:
-                        print(f"Failed to allocate bot {e}")
+                        logger.warning(f"Failed to allocate bot {e}, will try the next")
                         continue
 
                     try:
@@ -363,7 +368,7 @@ class Scheduler:
                             )
                         break
                     except ScheduleError as e:
-                        print(f"Failed to create transit schedule {bot_id_index} / {len(available_ids)}")
+                        logger.warning(f"Failed to create transit schedule {bot_id_index} / {len(available_ids)}, will try the next")
 
                         # Delete the allocation we just made for the payload
                         self.delete_allocations_for_flight_plan(
@@ -388,7 +393,7 @@ class Scheduler:
         }
 
         schedule = Schedule(raw_schedule=schedule_dict)
-        print(f"Schedule contains {len(schedule.flight_plans)} flight plans")
+        logger.debug(f"Schedule contains {len(schedule.flight_plans)} flight plans")
         return schedule
 
     def validate_flight_plan(self, flight_plan: FlightPlan):
@@ -511,7 +516,7 @@ class Scheduler:
         """
         For a given flight plan, add any necessary refueling waypoints
         """
-        print(f"Recalculating flight plan, original waypoint count {len(flight_plan.waypoints)}")
+        logger.info(f"Recalculating flight plan {flight_plan.id}, original waypoint count {len(flight_plan.waypoints)}")
         #print_waypoints(flight_plan)
         assert flight_plan.meta.bot_model is not None
 
@@ -654,7 +659,7 @@ class Scheduler:
             else:
                 finished = True
 
-        print(f"After recalculation, waypoint count {len(flight_plan.waypoints)}")
+        logger.debug(f"After recalculation for {flight_plan.id}, waypoint count {len(flight_plan.waypoints)}")
 
     def add_positions_to_action_waypoints(self, flight_plan: FlightPlan) -> None:
         """
@@ -736,14 +741,14 @@ class Scheduler:
         """
         For a given flight plan, determine the flight plans for any refueling bots
         """
-        print("Creating refuel flight plans")
+        logger.info(f"Creating refuel flight plans for flight plan {flight_plan.id}")
         assert flight_plan.is_approximated
 
-        print(f"There are {len(flight_plan.refuel_waypoints)} refuel waypoints")
+        logger.debug(f"There are {len(flight_plan.refuel_waypoints)} refuel waypoints")
         calculated_flight_plans_per_waypoint_id = {}
 
         for index, refuel_waypoint in enumerate(flight_plan.refuel_waypoints):
-            print(f"Looking at waypoint {index}")
+            logger.debug(f"Looking at waypoint {index}")
             calculated_flight_plans_per_waypoint_id.setdefault(refuel_waypoint.id, [])
 
             # Get all the base flight plans for refuelers from different towers and different bot models
@@ -768,7 +773,7 @@ class Scheduler:
                     for waypoint in flight_plan_copy.waypoints:
                         if waypoint.is_action and waypoint.is_being_recharged:
                             if waypoint.position and waypoint.position == giving_refuel_waypoint.position:
-                                print("Pregiving refuel is needed")
+                                logger.info("Pregiving refuel is needed")
                                 # We will inject a refuel point into the original potential flight plan to avoid this case
                                 self.add_pre_giving_refuel_waypoint(flight_plan)
 
@@ -786,8 +791,8 @@ class Scheduler:
                         )
                         break
                     except ScheduleError as e:
-                        print(f"Failed to create schedule for dummy flight plan {index} / {len(dummy_potential_flight_plans)}, refuel schema {refuel_index}")
-                        print(e)
+                        logger.warning(f"Failed to create schedule for dummy flight plan {index} / {len(dummy_potential_flight_plans)}, refuel schema {refuel_index}")
+                        logger.warning(f"Schedule error {e}, looking at next")
                         refuel_schedule = None
                         continue
                 if refuel_schedule:
@@ -818,16 +823,16 @@ class Scheduler:
             position = waypoint.position
 
         distances = []
-        print("Getting nearest towers")
+        logger.debug("Getting nearest towers")
 
         for tower in self.towers:
             distance = distance_between(position, tower.position)
-            print(f"Distance between {position} and {tower.id} at {tower.position} is {distance}")
+            logger.debug(f"Distance between {position} and {tower.id} at {tower.position} is {distance}")
             distances.append((distance, tower))
 
         # We then sort by distance and return a list of towers with the first being the closest
         distances.sort(key=lambda value: value[0])
-        print(f"Nearest is {distances[0][1].id}")
+        logger.debug(f"Nearest is {distances[0][1].id}")
         if len(distances) >= 2:
             assert distances[0][0] <= distances[1][0]
 
@@ -858,7 +863,7 @@ class Scheduler:
         """
         For a given flight plan with a GIVING_RECHARGE action, add refuel waypoint in the previous leg
         """
-        print("Adding pre-giving refuel waypoint")
+        logger.info("Adding pre-giving refuel waypoint")
         assert self.validate_flight_plan(flight_plan), "Invalid flight plan prior to adding pre-giving refuel waypoint"
         assert flight_plan.has_giving_recharge_waypoint
         #print("Before adding pre-giving refuel waypoint")
@@ -930,7 +935,7 @@ class Scheduler:
 
         #TODO, For now we dont consider the flight gradients
         """
-        print("Creating transit schedule")
+        logger.info("Creating transit schedule")
         assert bot_id or payload_id
         # Confirm the payload_id is located at the prescribed tower
 
@@ -1112,10 +1117,10 @@ class Scheduler:
         """
         For a given flight plan, add buffer waypoints at the beginning and end of the flight plan
         """
-        print(f"Stretching flight plan by start {start_delta} and end {end_delta}")
+        logger.info(f"Stretching flight plan {flight_plan.id} by start {start_delta} and end {end_delta}")
         launch_tower = self.get_tower_by_id(flight_plan.starting_tower)
         landing_tower = self.get_tower_by_id(flight_plan.finishing_tower)
-        print(f"Flight plan meta is {flight_plan.meta}")
+        logger.debug(f"Flight plan meta is {flight_plan.meta}")
         bot = flight_plan.meta.bot_model
 
         if (
@@ -1123,7 +1128,7 @@ class Scheduler:
             and flight_plan.waypoints[1].is_action
             and flight_plan.waypoints[1].action == 'waiting'
         ):
-            print("Extending existing stretch")
+            logger.debug("Extending existing stretch")
             # We are extending an existing stretch
             # Extend the first waiting
             flight_plan.waypoints[1].duration = flight_plan.waypoints[1].duration + start_delta
@@ -1136,7 +1141,7 @@ class Scheduler:
             ):
                 flight_plan.waypoints[-2].duration = flight_plan.waypoints[-2].duration + end_delta
         else:
-            print("Creating new stretch")
+            logger.debug("Creating new stretch")
             # We are stretching for the first time on this flight plan
             # TODO, Really the towers should define their waiting areas
             early_launch_leg = LegWaypoint(
@@ -1192,7 +1197,7 @@ class Scheduler:
         For a given flight plan, manipulate it to fit into the available launch and landing allocation slots
         This operates on the FlightPlan in place and returns a boolean if it is able to and has successfully done so
         """
-        print("Fitting flight plan into tower allocations")
+        logger.info(f"Fitting flight plan {flight_plan.id} into tower allocations")
         assert flight_plan.is_approximated, print_waypoints(flight_plan)
         self.validate_flight_plan(flight_plan)
 
@@ -1202,7 +1207,7 @@ class Scheduler:
         # Find the nearest launch window (looking before the launch time)
         nearest_launch_intervals = launch_tower.launch_allocator.get_nearest_intervals_to_window_end(flight_plan.start_time)
         if not nearest_launch_intervals:
-            print(f"No intervals available for launch day {flight_plan.start_time} at tower {launch_tower} flight plan {flight_plan.id}")
+            logger.warning(f"No intervals available for launch day {flight_plan.start_time} at tower {launch_tower} flight plan {flight_plan.id}")
             return False
 
         # A list of tuples of (interval, window start, window end) for each interval
@@ -1219,7 +1224,7 @@ class Scheduler:
         ]
 
         if not nearest_launch_windows:
-            print(f"No intervals available for launch window of flight plan {flight_plan.id}")
+            logger.warning(f"No intervals available for launch window of flight plan {flight_plan.id}")
             return False
 
         # Consider the first nearest window
@@ -1228,7 +1233,7 @@ class Scheduler:
         # Now find the nearest landing window (looking after the landing time)
         nearest_landing_intervals = landing_tower.landing_allocator.get_nearest_intervals_to_window_start(flight_plan.end_time)
         if not nearest_landing_intervals:
-            print(f"No intervals available for landing day {flight_plan.end_time} at tower {landing_tower} flight plan {flight_plan.id}")
+            logger.warning(f"No intervals available for landing day {flight_plan.end_time} at tower {landing_tower} flight plan {flight_plan.id}")
             return False
 
         # A list of tuples of (interval, window start, window end) for each interval
@@ -1245,12 +1250,12 @@ class Scheduler:
         ]
 
         if not nearest_landing_windows:
-            print(f"No intervals available for landing window of flight plan {flight_plan.id}")
+            logger.warning(f"No intervals available for landing window of flight plan {flight_plan.id}")
             return False
 
         # Consider the first nearest window
         nearest_landing_window = nearest_landing_windows[0]
-        print(f"Nearest landing window to {flight_plan.end_time} is {nearest_landing_window[1]}")
+        logger.debug(f"Nearest landing window to {flight_plan.end_time} is {nearest_landing_window[1]}")
 
         # Copy the flight plan and strip it to make it raw
         #print("original")
@@ -1265,8 +1270,8 @@ class Scheduler:
             launch_time=flight_plan.start_time
         )
 
-        print(f"Flight plan start and end before stretching {flight_plan.start_time} {flight_plan.end_time}")
-        print(f"Flight plan waypoint count before stretch {len(flight_plan.waypoints)}")
+        logger.debug(f"Flight plan start and end before stretching {flight_plan.start_time} {flight_plan.end_time}")
+        logger.debug(f"Flight plan waypoint count before stretch {len(flight_plan.waypoints)}")
         # Stretch the flight plan
         self.stretch_flight_plan(
             flight_plan=flight_plan_copy,
@@ -1280,12 +1285,12 @@ class Scheduler:
             launch_time=nearest_launch_window[2]
         )
 
-        print(f"Flight plan waypoint count after stretch {len(flight_plan_copy.waypoints)}")
-        print(f"Flight plan start and end after stretching {flight_plan_copy.start_time} {flight_plan_copy.end_time}")
+        logger.debug(f"Flight plan waypoint count after stretch {len(flight_plan_copy.waypoints)}")
+        logger.debug(f"Flight plan start and end after stretching {flight_plan_copy.start_time} {flight_plan_copy.end_time}")
         self.add_positions_to_action_waypoints(flight_plan_copy)
 
         # Recalculate the flight plan to add the refueling points
-        print("Recalculation in stretch")
+        logger.debug("Recalculation in stretch")
         self.recalculate_flight_plan(flight_plan_copy)
         self.add_positions_to_action_waypoints(flight_plan_copy)
 
@@ -1297,7 +1302,7 @@ class Scheduler:
 
         # If the recalculated flight plan has the same number of refuel waypoint as the original, apply it to the original
         if flight_plan_copy.refuel_waypoint_count == flight_plan.refuel_waypoint_count:
-            print("Breaking fit recursion")
+            logger.debug("Breaking fit recursion")
             flight_plan.copy_from(flight_plan_copy)
 
             # Copying doesn't copy approximations so we apply them again
@@ -1309,7 +1314,7 @@ class Scheduler:
             return True
 
         # Else recurse on the stretched flight plan and then apply it to the original
-        print("Recursing fit")
+        logger.debug("Recursing fit")
         return self.fit_flight_plan_into_tower_allocations(flight_plan_copy)
 
     def allocate_flight_plan(self, flight_plan: FlightPlan) -> bool:
@@ -1318,7 +1323,7 @@ class Scheduler:
         Calls to this function should be wrapped in a try-except to catch AllocationError(s).
         If successful, the allocations are stored in self.flight_plan_allocation_to_deallocator
         """
-        print("Allocating flight plan")
+        logger.info("Allocating flight plan")
         assert flight_plan.is_approximated
 
         launch_tower = self.get_tower_by_id(flight_plan.starting_tower)
@@ -1327,7 +1332,7 @@ class Scheduler:
         # Find the nearest launch window (looking before the launch time)
         nearest_intervals = launch_tower.launch_allocator.get_nearest_intervals_to_window_end(flight_plan.start_time)
         if not nearest_intervals:
-            print(f"No intervals available for launch day {flight_plan.start_time} at tower {launch_tower} flight plan {flight_plan.id}")
+            logger.warning(f"No intervals available for launch day {flight_plan.start_time} at tower {launch_tower} flight plan {flight_plan.id}")
             return False
 
         # A list of tuples of (interval, window start, window end) for each interval
@@ -1346,16 +1351,16 @@ class Scheduler:
                 )
                 self.flight_plan_allocation_to_deallocator[flight_plan.id][allocation_id] = launch_tower.deallocate_launch
             except AllocationError as e:
-                print(f"Failed to allocate launch window for {flight_plan.id}")
+                logger.warning(f"Failed to allocate launch window for {flight_plan.id}")
                 return False
         else:
-            print(f"Failed to allocate launch window for {flight_plan.id}, interval mismatch, window end is {nearest_window[2]}, start is {flight_plan.start_time}")
+            logger.warning(f"Failed to allocate launch window for {flight_plan.id}, interval mismatch, window end is {nearest_window[2]}, start is {flight_plan.start_time}")
             return False
 
         # Now find the nearest landing window (looking after the landing time)
         nearest_intervals = landing_tower.landing_allocator.get_nearest_intervals_to_window_start(flight_plan.end_time)
         if not nearest_intervals:
-            print(f"No intervals available for landing day {flight_plan.end_time} at tower {landing_tower} flight plan {flight_plan.id}")
+            logger.warning(f"No intervals available for landing day {flight_plan.end_time} at tower {landing_tower} flight plan {flight_plan.id}")
             return False
 
         # A list of tuples of (interval, window start, window end) for each interval
@@ -1374,10 +1379,10 @@ class Scheduler:
                 )
                 self.flight_plan_allocation_to_deallocator[flight_plan.id][allocation_id] = landing_tower.deallocate_landing
             except AllocationError as e:
-                print(f"Failed to allocate landing for {flight_plan.id}")
+                logger.warning(f"Failed to allocate landing for {flight_plan.id}")
                 return False
         else:
-            print(f"Failed to allocate landing window for {flight_plan.id}, interval mismatch")
+            logger.warning(f"Failed to allocate landing window for {flight_plan.id}, interval mismatch")
             return False
 
         return True
@@ -1440,11 +1445,11 @@ class Scheduler:
         )
 
     def get_payload_tower_for_given_time(self, payload_id: str, reference_time: datetime.datetime) -> Optional[Tower]:
-        print(f"Getting payload {payload_id} tower for given time")
+        logger.debug(f"Getting payload {payload_id} tower for given time")
         assert self.payload_manager.trackers.get(payload_id) is not None
 
         payload_tracker = self.payload_manager.trackers[payload_id]
-        print(f"Trackers are {payload_tracker}")
+        logger.debug(f"Trackers are {payload_tracker}")
 
         if not payload_tracker.tracker:
             initial_tower_id = payload_tracker.initial_context['tower_id']
@@ -1500,7 +1505,7 @@ class Scheduler:
             try:
                 deallocator = self.flight_plan_allocation_to_deallocator[flight_plan_id][allocation_id]
             except KeyError as e:
-                print(f"Failed to retrieve deallocator for flight plan {flight_plan_id} and allocation id {allocation_id}, {e}")
+                logger.debug(f"Failed to retrieve deallocator for flight plan {flight_plan_id} and allocation id {allocation_id}, {e}")
                 return
 
             return deallocator(allocation_id)

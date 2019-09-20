@@ -1,6 +1,9 @@
 from typing import List, Optional
 import datetime, uuid
 from dataclasses import dataclass
+import logging
+
+logger = logging.getLogger(__name__)
 
 class AllocationError(Exception):
     pass
@@ -43,8 +46,8 @@ class ResourceAllocator:
                 to_datetime > allocation.from_datetime and to_datetime <= allocation.to_datetime
                 or from_datetime >= allocation.from_datetime and from_datetime < allocation.to_datetime
             ):
-                print(f"Allocation from {allocation.from_datetime} to {allocation.to_datetime}")
-                print(f"Attempted allocation from {from_datetime} to {to_datetime}")
+                logger.warning(f"Allocation from {allocation.from_datetime} to {allocation.to_datetime}")
+                logger.warning(f"Attempted allocation from {from_datetime} to {to_datetime}")
                 raise AllocationError(f"Resource {resource_id} already allocated")
 
         self.allocator[resource_id].append(

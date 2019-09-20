@@ -1,7 +1,10 @@
-from .resource_allocator import ResourceAllocator, Resource, AllocationError
-
 import datetime
 from typing import Optional, List
+import logging
+
+logger = logging.getLogger(__name__)
+
+from .resource_allocator import ResourceAllocator, Resource, AllocationError
 
 class IntervalResourceAllocator(ResourceAllocator):
     """
@@ -57,7 +60,7 @@ class IntervalResourceAllocator(ResourceAllocator):
             try:
                 self.days[allocation_date].remove(allocation.blob['interval'])
             except KeyError as e:
-                print(f"Failed to delete allocation {e}")
+                logger.warning(f"Failed to delete allocation {e}")
 
         return super().delete_allocation(allocation_id)
 

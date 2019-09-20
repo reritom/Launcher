@@ -1,5 +1,8 @@
 import json, uuid
 from typing import Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 from .leg_waypoint import LegWaypoint
 from .action_waypoint import ActionWaypoint
@@ -121,7 +124,7 @@ class FlightPlan:
         """
         for index, waypoint in enumerate(self.waypoints):
             if not waypoint.is_approximated:
-                print(f"Waypoint {index}/{len(self.waypoints)} not approximated")
+                logger.debug(f"Waypoint {index}/{len(self.waypoints)} not approximated")
                 return False
 
         return True
@@ -181,18 +184,18 @@ class FlightPlan:
             return False
 
         if len(self.waypoints) != len(other.waypoints):
-            print(f"Lengths dont match {len(self.waypoints)} {len(other.waypoints)}")
+            logger.debug(f"Lengths dont match {len(self.waypoints)} {len(other.waypoints)}")
             return False
 
-        print(f"Lengths match {len(self.waypoints)} {len(other.waypoints)}")
+        logger.debug(f"Lengths match {len(self.waypoints)} {len(other.waypoints)}")
 
         for index, waypoint in enumerate(self.waypoints):
             if not waypoint == other.waypoints[index]:
                 return False
 
-        print("Waypoints match")
-        print(self.starting_tower, other.starting_tower)
-        print(self.finishing_tower, other.finishing_tower)
+        logger.debug("Waypoints match")
+        logger.debug(self.starting_tower, other.starting_tower)
+        logger.debug(self.finishing_tower, other.finishing_tower)
 
         return (
             self.starting_tower == other.starting_tower

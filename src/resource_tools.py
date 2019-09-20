@@ -1,4 +1,7 @@
 from typing import List, Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 from .payload import Payload
 from .payload_schema import PayloadSchema
@@ -8,7 +11,7 @@ from .bot_schema import BotSchema
 
 def print_waypoints(flight_plan):
     string = '\n'.join([repr(waypoint) for waypoint in flight_plan.waypoints])
-    print(string)
+    logger.debug(string)
     return string
 
 def get_payload_by_id(id: str, payloads: List[Payload]) -> Optional[Payload]:

@@ -7,3 +7,4 @@ __pycache__/
 dummy.py
 im.mp4
 hello.json
+*.log

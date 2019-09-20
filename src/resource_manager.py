@@ -1,5 +1,8 @@
 from typing import List
 import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 from src.resource_allocator import ResourceAllocator, Resource
 from src.resource_tracker import ResourceTracker
@@ -17,6 +20,7 @@ class ResourceManager:
 
     def set_tracker(self, resource_id: str, initial_context: dict):
         if resource_id in self.trackers:
+            logger.warning("Attempting to overwrite an already defined tracker")
             raise Exception("Attempting to overwrite an already defined tracker")
 
         self.trackers[resource_id] = ResourceTracker(initial_context)

@@ -29,7 +29,6 @@ class Schedule:
 
     @classmethod
     def from_schedules(cls, schedules: List['Schedule']) -> 'Schedule':
-        print(schedules)
         raw_schedule = {
             'flight_plan': None,
             'related_sub_flight_plans': {
@@ -37,7 +36,6 @@ class Schedule:
                 for schedule in schedules
             }
         }
-        print(raw_schedule)
         return cls(raw_schedule)
 
     @property
@@ -60,7 +58,6 @@ class Schedule:
         }
         """
         flight_plans = []
-        print(raw_schedule)
 
         # Orchestrations dont have a top level flight plan
         if raw_schedule.get('flight_plan'):
