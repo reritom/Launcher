@@ -5,29 +5,29 @@ import datetime
 
 from .scheduler import Scheduler
 from .bot import BotSchema
+from .resource_manager import ResourceManager
 from .flight_plan import FlightPlan
 from .tower import Tower
+from .flight_plan_meta import FlightPlanMeta
 from .action_waypoint import ActionWaypoint
 from .leg_waypoint import LegWaypoint
 
 class TestScheduler(unittest.TestCase):
-    def test_init_ko(self):
-        # If the tower has an inventory bot which isnt registered, an assertion error is raised
-        pass
-
     def test_validate_flight_plan_ok(self):
-        bots = [
+        bot_schemas = [
             BotSchema(
                 flight_time=500,
                 speed=1,
                 bot_type="Refueler",
-                model="TestI"
+                model="TestI",
+                cruising_altitude=100
             ),
             BotSchema(
                 flight_time=500,
                 speed=1,
                 bot_type="Carrier",
-                model="CarrierI"
+                model="CarrierI",
+                cruising_altitude=100
             )
         ]
 
@@ -42,27 +42,42 @@ class TestScheduler(unittest.TestCase):
             })
         ]
 
+        meta = FlightPlanMeta(
+            bot_model=BotSchema(
+                flight_time=500,
+                speed=1,
+                bot_type="Carrier",
+                model="CarrierI",
+                cruising_altitude=100
+            )
+        )
+
         flight_plan = FlightPlan(
             waypoints=waypoints,
-            bot_model="CarrierI",
             starting_tower='TowerOne',
             finishing_tower='TowerOne',
+            meta=meta
         )
 
         towers = [
             Tower(
                 id='TowerOne',
-                inventory=[{'model': "TestI", 'quantity': 5}],
                 position=[0,0,0],
                 parallel_launchers=1,
                 parallel_landers=1,
-                launch_time=1
+                launch_time=1,
+                landing_time=1,
+                bot_capacity=10,
+                payload_capacity=10
             )
         ]
 
         scheduler = Scheduler(
             towers=towers,
-            bots=bots,
+            bot_schemas=bot_schemas,
+            payload_schemas=[],
+            bot_manager=ResourceManager([]),
+            payload_manager=ResourceManager([]),
             refuel_duration=100,
             remaining_flight_time_at_refuel=200,
             refuel_anticipation_buffer=100
@@ -73,72 +88,21 @@ class TestScheduler(unittest.TestCase):
         except AssertionError as e:
             self.fail("Validation failed unexpectedly")
 
-    def test_validate_flight_plan_ko_invalid_bot_model(self):
-        bots = [
-            BotSchema(
-                flight_time=500,
-                speed=1,
-                bot_type="Refueler",
-                model="TestI"
-            ),
-            BotSchema(
-                flight_time=500,
-                speed=1,
-                bot_type="Carrier",
-                model="CarrierI"
-            )
-        ]
-
-        waypoints = [
-            LegWaypoint(positions={
-                'from': [0,0,0],
-                'to': [0,0,1000]
-            })
-        ]
-
-        flight_plan = FlightPlan(
-            waypoints=waypoints,
-            bot_model="This doesnt exist",
-            starting_tower='TowerOne',
-            finishing_tower='TowerOne',
-        )
-
-        towers = [
-            Tower(
-                id="TowerOne",
-                inventory=[{'model': "TestI", 'quantity': 5}],
-                position=[0,0,0],
-                parallel_launchers=1,
-                parallel_landers=1,
-                launch_time=1
-            )
-        ]
-
-        scheduler = Scheduler(
-            towers=towers,
-            bots=bots,
-            refuel_duration=100,
-            remaining_flight_time_at_refuel=200,
-            refuel_anticipation_buffer=100
-        )
-
-        # This will fail because the flight plan bot isnt registered in the scheduler
-        with self.assertRaises(AssertionError) as ctx:
-            scheduler.validate_flight_plan(flight_plan)
-
     def test_validate_flight_plan_ko_invalid_final_target(self):
-        bots = [
+        bot_schemas = [
             BotSchema(
                 flight_time=500,
                 speed=1,
                 bot_type="Refueler",
-                model="TestI"
+                model="TestI",
+                cruising_altitude=100
             ),
             BotSchema(
                 flight_time=500,
                 speed=1,
                 bot_type="Carrier",
-                model="CarrierI"
+                model="CarrierI",
+                cruising_altitude=100
             )
         ]
 
@@ -149,27 +113,42 @@ class TestScheduler(unittest.TestCase):
             })
         ]
 
+        meta = FlightPlanMeta(
+            bot_model=BotSchema(
+                flight_time=500,
+                speed=1,
+                bot_type="Carrier",
+                model="CarrierI",
+                cruising_altitude=100
+            )
+        )
+
         flight_plan = FlightPlan(
             waypoints=waypoints,
-            bot_model="This doesnt exist",
             starting_tower='TowerOne',
             finishing_tower='TowerOne',
+            meta=meta
         )
 
         towers = [
             Tower(
                 id='TowerOne',
-                inventory=[{'model': "TestI", 'quantity': 5}],
                 position=[0,0,0],
                 parallel_launchers=1,
                 parallel_landers=1,
-                launch_time=1
+                launch_time=1,
+                landing_time=1,
+                bot_capacity=10,
+                payload_capacity=10
             )
         ]
 
         scheduler = Scheduler(
             towers=towers,
-            bots=bots,
+            bot_schemas=bot_schemas,
+            payload_schemas=[],
+            bot_manager=ResourceManager([]),
+            payload_manager=ResourceManager([]),
             refuel_duration=100,
             remaining_flight_time_at_refuel=200,
             refuel_anticipation_buffer=100
@@ -180,12 +159,13 @@ class TestScheduler(unittest.TestCase):
             scheduler.validate_flight_plan(flight_plan)
 
     def test_approximate_timings_from_launch_time(self):
-        bots = [
+        bot_schemas = [
             BotSchema(
                 flight_time=50,
                 speed=1,
                 bot_type="Carrier",
-                model="CarrierI"
+                model="CarrierI",
+                cruising_altitude=100
             )
         ]
 
@@ -208,27 +188,42 @@ class TestScheduler(unittest.TestCase):
             })
         ]
 
+        meta = FlightPlanMeta(
+            bot_model=BotSchema(
+                flight_time=500,
+                speed=1,
+                bot_type="Carrier",
+                model="CarrierI",
+                cruising_altitude=100
+            )
+        )
+
         flight_plan = FlightPlan(
             waypoints=waypoints,
-            bot_model="CarrierI",
             starting_tower='TowerOne',
             finishing_tower='TowerOne',
+            meta=meta
         )
 
         towers = [
             Tower(
                 id='TowerOne',
-                inventory=[{'model': "CarrierI", 'quantity': 5}],
                 position=[0,0,0],
                 parallel_launchers=1,
                 parallel_landers=1,
-                launch_time=1
+                launch_time=1,
+                landing_time=1,
+                bot_capacity=10,
+                payload_capacity=10
             )
         ]
 
         scheduler = Scheduler(
             towers=towers,
-            bots=bots,
+            bot_schemas=bot_schemas,
+            payload_schemas=[],
+            bot_manager=ResourceManager([]),
+            payload_manager=ResourceManager([]),
             refuel_duration=100,
             remaining_flight_time_at_refuel=150,
             refuel_anticipation_buffer=100
@@ -262,12 +257,13 @@ class TestScheduler(unittest.TestCase):
             self.assertEqual(waypoint.end_time, expected_timings[index][1])
 
     def test_approximate_timings_from_waypoint_eta(self):
-        bots = [
+        bot_schemas = [
             BotSchema(
                 flight_time=50,
                 speed=1,
                 bot_type="Carrier",
-                model="CarrierI"
+                model="CarrierI",
+                cruising_altitude=100
             )
         ]
 
@@ -291,27 +287,42 @@ class TestScheduler(unittest.TestCase):
             })
         ]
 
+        meta = FlightPlanMeta(
+            bot_model=BotSchema(
+                flight_time=500,
+                speed=1,
+                bot_type="Carrier",
+                model="CarrierI",
+                cruising_altitude=100
+            )
+        )
+
         flight_plan = FlightPlan(
             waypoints=waypoints,
-            bot_model="CarrierI",
             starting_tower='TowerOne',
             finishing_tower='TowerOne',
+            meta=meta
         )
 
         towers = [
             Tower(
                 id='TowerOne',
-                inventory=[{'model': "CarrierI", 'quantity': 5}],
                 position=[0,0,0],
                 parallel_launchers=1,
                 parallel_landers=1,
-                launch_time=1
+                launch_time=1,
+                landing_time=1,
+                bot_capacity=10,
+                payload_capacity=10
             )
         ]
 
         scheduler = Scheduler(
             towers=towers,
-            bots=bots,
+            bot_schemas=bot_schemas,
+            payload_schemas=[],
+            bot_manager=ResourceManager([]),
+            payload_manager=ResourceManager([]),
             refuel_duration=100,
             remaining_flight_time_at_refuel=150,
             refuel_anticipation_buffer=100
@@ -345,18 +356,20 @@ class TestScheduler(unittest.TestCase):
             self.assertEqual(waypoint.end_time, expected_timings[index][1])
 
     def test_recalculate_flight_plan_one_leg(self):
-        bots = [
+        bot_schemas = [
             BotSchema(
                 flight_time=500,
                 speed=1,
                 bot_type="Refueler",
-                model="TestI"
+                model="TestI",
+                cruising_altitude=100
             ),
             BotSchema(
                 flight_time=500,
                 speed=1,
                 bot_type="Carrier",
-                model="CarrierI"
+                model="CarrierI",
+                cruising_altitude=100
             )
         ]
 
@@ -367,35 +380,52 @@ class TestScheduler(unittest.TestCase):
             })
         ]
 
+        meta = FlightPlanMeta(
+            bot_model=BotSchema(
+                flight_time=500,
+                speed=1,
+                bot_type="Carrier",
+                model="CarrierI",
+                cruising_altitude=100
+            )
+        )
+
         flight_plan = FlightPlan(
             waypoints=waypoints,
-            bot_model="CarrierI",
             starting_tower='TowerOne',
             finishing_tower='TowerTwo',
+            meta=meta
         )
 
         towers = [
             Tower(
                 id='TowerOne',
-                inventory=[{'model': "TestI", 'quantity': 5}],
                 position=[0,0,0],
                 parallel_launchers=1,
                 parallel_landers=1,
-                launch_time=1
+                launch_time=1,
+                landing_time=1,
+                bot_capacity=10,
+                payload_capacity=10
             ),
             Tower(
                 id='TowerTwo',
-                inventory=[{'model': "TestI", 'quantity': 5}],
                 position=[0,0,1000],
                 parallel_launchers=1,
                 parallel_landers=1,
-                launch_time=1
+                launch_time=1,
+                landing_time=1,
+                bot_capacity=10,
+                payload_capacity=10
             )
         ]
 
         scheduler = Scheduler(
             towers=towers,
-            bots=bots,
+            bot_schemas=bot_schemas,
+            payload_schemas=[],
+            bot_manager=ResourceManager([]),
+            payload_manager=ResourceManager([]),
             refuel_duration=100,
             remaining_flight_time_at_refuel=200,
             refuel_anticipation_buffer=100
@@ -440,11 +470,21 @@ class TestScheduler(unittest.TestCase):
             }),
         ]
 
+        meta = FlightPlanMeta(
+            bot_model=BotSchema(
+                flight_time=500,
+                speed=1,
+                bot_type="Carrier",
+                model="CarrierI",
+                cruising_altitude=100
+            )
+        )
+
         expected_flight_plan = FlightPlan(
             waypoints=expected_waypoints,
-            bot_model="CarrierI",
             starting_tower='TowerOne',
             finishing_tower='TowerTwo',
+            meta=meta
         )
 
         # The flight plan has only one leg, so we expect this leg to be split
@@ -452,18 +492,20 @@ class TestScheduler(unittest.TestCase):
         self.assertEqual(flight_plan, expected_flight_plan)
 
     def test_recalculate_flight_plan_roundtrip_with_action(self):
-        bots = [
+        bot_schemas = [
             BotSchema(
                 flight_time=500,
                 speed=1,
                 bot_type="Refueler",
-                model="TestI"
+                model="TestI",
+                cruising_altitude=100
             ),
             BotSchema(
                 flight_time=500,
                 speed=1,
                 bot_type="Carrier",
-                model="CarrierI"
+                model="CarrierI",
+                cruising_altitude=100
             )
         ]
 
@@ -482,27 +524,42 @@ class TestScheduler(unittest.TestCase):
             })
         ]
 
+        meta = FlightPlanMeta(
+            bot_model=BotSchema(
+                flight_time=500,
+                speed=1,
+                bot_type="Carrier",
+                model="CarrierI",
+                cruising_altitude=100
+            )
+        )
+
         flight_plan = FlightPlan(
             waypoints=waypoints,
-            bot_model="CarrierI",
             starting_tower='TowerOne',
             finishing_tower='TowerOne',
+            meta=meta
         )
 
         towers = [
             Tower(
                 id='TowerOne',
-                inventory=[{'model': "TestI", 'quantity': 5}],
                 position=[0,0,0],
                 parallel_launchers=1,
                 parallel_landers=1,
-                launch_time=1
+                launch_time=1,
+                landing_time=1,
+                bot_capacity=10,
+                payload_capacity=10
             )
         ]
 
         scheduler = Scheduler(
             towers=towers,
-            bots=bots,
+            bot_schemas=bot_schemas,
+            payload_schemas=[],
+            bot_manager=ResourceManager([]),
+            payload_manager=ResourceManager([]),
             refuel_duration=10,
             remaining_flight_time_at_refuel=20,
             refuel_anticipation_buffer=10
@@ -563,29 +620,41 @@ class TestScheduler(unittest.TestCase):
             }),
         ]
 
+        meta = FlightPlanMeta(
+            bot_model=BotSchema(
+                flight_time=500,
+                speed=1,
+                bot_type="Carrier",
+                model="CarrierI",
+                cruising_altitude=100
+            )
+        )
+
         expected_flight_plan = FlightPlan(
             waypoints=expected_waypoints,
-            bot_model="CarrierI",
             starting_tower='TowerOne',
             finishing_tower='TowerOne',
+            meta=meta
         )
 
         scheduler.recalculate_flight_plan(flight_plan)
         self.assertEqual(flight_plan, expected_flight_plan)
 
     def test_recalculate_flight_plan_roundtrip_with_giving_refuel_action(self):
-        bots = [
+        bot_schemas = [
             BotSchema(
                 flight_time=500,
                 speed=1,
                 bot_type="Refueler",
-                model="TestI"
+                model="TestI",
+                cruising_altitude=100
             ),
             BotSchema(
                 flight_time=500,
                 speed=1,
                 bot_type="Carrier",
-                model="CarrierI"
+                model="CarrierI",
+                cruising_altitude=100
             )
         ]
 
@@ -608,27 +677,42 @@ class TestScheduler(unittest.TestCase):
             })
         ]
 
+        meta = FlightPlanMeta(
+            bot_model=BotSchema(
+                flight_time=500,
+                speed=1,
+                bot_type="Carrier",
+                model="CarrierI",
+                cruising_altitude=100
+            )
+        )
+
         flight_plan = FlightPlan(
             waypoints=waypoints,
-            bot_model="CarrierI",
             starting_tower='TowerOne',
             finishing_tower='TowerOne',
+            meta=meta
         )
 
         towers = [
             Tower(
                 id='TowerOne',
-                inventory=[{'model': "TestI", 'quantity': 5}],
                 position=[0,0,0],
                 parallel_launchers=1,
                 parallel_landers=1,
-                launch_time=1
+                launch_time=1,
+                landing_time=1,
+                bot_capacity=10,
+                payload_capacity=10
             )
         ]
 
         scheduler = Scheduler(
             towers=towers,
-            bots=bots,
+            bot_schemas=bot_schemas,
+            payload_schemas=[],
+            bot_manager=ResourceManager([]),
+            payload_manager=ResourceManager([]),
             refuel_duration=100,
             remaining_flight_time_at_refuel=150,
             refuel_anticipation_buffer=100
@@ -681,11 +765,21 @@ class TestScheduler(unittest.TestCase):
             }),
         ]
 
+        meta = FlightPlanMeta(
+            bot_model=BotSchema(
+                flight_time=500,
+                speed=1,
+                bot_type="Carrier",
+                model="CarrierI",
+                cruising_altitude=100
+            )
+        )
+
         expected_flight_plan = FlightPlan(
             waypoints=expected_waypoints,
-            bot_model="CarrierI",
             starting_tower='TowerOne',
-            finishing_tower='TowerOne'
+            finishing_tower='TowerOne',
+            meta=meta
         )
 
         # The flight plan has only one leg, so we expect this leg to be split
@@ -693,18 +787,20 @@ class TestScheduler(unittest.TestCase):
         self.assertEqual(flight_plan, expected_flight_plan)
 
     def test_get_nearest_towers_to_waypoint(self):
-        bots = [
+        bot_schemas = [
             BotSchema(
                 flight_time=500,
                 speed=1,
                 bot_type="Refueler",
-                model="TestI"
+                model="TestI",
+                cruising_altitude=100
             ),
-            BotSchemaSchema(
+            BotSchema(
                 flight_time=500,
                 speed=1,
                 bot_type="Carrier",
-                model="CarrierI"
+                model="CarrierI",
+                cruising_altitude=100
             )
         ]
 
@@ -719,33 +815,42 @@ class TestScheduler(unittest.TestCase):
         towers = [
             Tower(
                 id='TowerOne',
-                inventory=[{'model': "TestI", 'quantity': 5}],
                 position=[0,0,0],
                 parallel_launchers=1,
                 parallel_landers=1,
-                launch_time=1
+                launch_time=1,
+                landing_time=1,
+                bot_capacity=10,
+                payload_capacity=10
             ),
             Tower(
                 id='TowerTwo',
-                inventory=[{'model': "TestI", 'quantity': 5}],
                 position=[30,30,30],
                 parallel_launchers=1,
                 parallel_landers=1,
-                launch_time=1
+                launch_time=1,
+                landing_time=1,
+                bot_capacity=10,
+                payload_capacity=10
             ),
             Tower(
                 id='TowerThree',
-                inventory=[{'model': "TestI", 'quantity': 5}],
                 position=[110,110,110],
                 parallel_launchers=1,
                 parallel_landers=1,
-                launch_time=1
+                launch_time=1,
+                landing_time=1,
+                bot_capacity=10,
+                payload_capacity=10
             )
         ]
 
         scheduler = Scheduler(
             towers=towers,
-            bots=bots,
+            bot_schemas=bot_schemas,
+            payload_schemas=[],
+            bot_manager=ResourceManager([]),
+            payload_manager=ResourceManager([]),
             refuel_duration=100,
             remaining_flight_time_at_refuel=150,
             refuel_anticipation_buffer=100

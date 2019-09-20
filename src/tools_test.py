@@ -1,7 +1,7 @@
 import unittest
 import math as maths
 
-from tools import distance_between, find_middle_position_by_ratio
+from .tools import distance_between, find_middle_position_by_ratio
 
 class TestDistanceBetween(unittest.TestCase):
     def test_distance_between_1(self):

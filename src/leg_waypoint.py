@@ -17,7 +17,8 @@ class LegWaypoint(Waypoint):
         dict_self = {
             'positions': self.positions,
             'type': self.type,
-            'id': self.id
+            'id': self.id,
+            'generated': self.generated if self.generated else False
         }
 
         if self.start_time and self.end_time:
@@ -30,7 +31,8 @@ class LegWaypoint(Waypoint):
     def from_dict(cls, waypoint_dict: dict):
         return cls(
             positions=waypoint_dict['positions'],
-            id=waypoint_dict.get('id')
+            id=waypoint_dict.get('id'),
+            generated=waypoint_dict.get('generated', False)
         )
 
     def __repr__(self):

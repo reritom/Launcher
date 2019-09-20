@@ -29,7 +29,7 @@ class ActionWaypoint(Waypoint):
             'action': self.action,
             'duration': self.duration,
             'id': self.id,
-            'generated': self.generated
+            'generated': self.generated if self.generated else False
         }
 
         if self.start_time and self.end_time:

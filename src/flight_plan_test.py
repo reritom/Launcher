@@ -39,13 +39,15 @@ class TestFlightPlan(unittest.TestCase):
                     'to':[10,10,10],
                  },
                  'id':'4e6ac29a-387f-45af-b798-c0e875ddd86c',
-                 'type':'leg'
+                 'type':'leg',
+                 'generated': False
               },
               {
                  'action':'TestAction',
                  'duration':10,
                  'id':'08c9d42f-c0d2-44b2-ab1c-863d1fa13975',
-                 'type':'action'
+                 'type':'action',
+                 'generated': False
               },
               {
                  'positions':{
@@ -53,7 +55,8 @@ class TestFlightPlan(unittest.TestCase):
                     'to':[0,0,0],
                  },
                  'id':'5640fa37-b6e6-4efd-893d-0d529e64dce2',
-                 'type':'leg'
+                 'type':'leg',
+                 'generated': False
               }
            ]
         }
