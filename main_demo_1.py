@@ -5,8 +5,6 @@ import logging.config
 os.system("rm -f logfile.log")
 logging.config.fileConfig("log.ini", disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
-mpl_logger = logging.getLogger("matplotlib")
-mpl_logger.setLevel(logging.WARNING)
 
 from src.flight_plan import FlightPlan
 from src.flight_plan_meta import FlightPlanMeta
