@@ -312,7 +312,8 @@ class Simulator:
         duration = 0
         for waypoint in flight_plan.waypoints:
             if waypoint.is_action:
-                duration += waypoint.duration
+                logger.critical(f"Waypoint duration {waypoint.duration} is type {type(waypoint.duration)}")
+                duration += waypoint.duration.total_seconds()
             elif waypoint.is_leg:
                 duration += distance_between(waypoint.from_pos, waypoint.to_pos)/bot_schema.speed
 
@@ -342,7 +343,7 @@ class Simulator:
                 break
 
             current_waypoint_duration = (
-                current_waypoint.duration
+                current_waypoint.duration.total_seconds()
                 if current_waypoint.is_action
                 else int(distance_between(current_waypoint.from_pos, current_waypoint.to_pos)/bot_schema.speed)
             )

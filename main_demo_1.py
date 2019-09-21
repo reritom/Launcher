@@ -100,9 +100,9 @@ scheduler = Scheduler(
     payload_schemas=payload_schemas,
     bot_manager=bot_manager,
     payload_manager=payload_manager,
-    refuel_duration=60,
-    remaining_flight_time_at_refuel=300,
-    refuel_anticipation_buffer=60
+    refuel_duration=datetime.timedelta(seconds=60),
+    remaining_flight_time_at_refuel=datetime.timedelta(seconds=300),
+    refuel_anticipation_buffer=datetime.timedelta(seconds=60)
 )
 
 simulator = Simulator(towers=towers, bot_schemas=bot_schemas)

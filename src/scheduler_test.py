@@ -78,9 +78,9 @@ class TestScheduler(unittest.TestCase):
             payload_schemas=[],
             bot_manager=ResourceManager([]),
             payload_manager=ResourceManager([]),
-            refuel_duration=100,
-            remaining_flight_time_at_refuel=200,
-            refuel_anticipation_buffer=100
+            refuel_duration=datetime.timedelta(seconds=100),
+            remaining_flight_time_at_refuel=datetime.timedelta(seconds=200),
+            refuel_anticipation_buffer=datetime.timedelta(seconds=100)
         )
 
         try:
@@ -149,9 +149,9 @@ class TestScheduler(unittest.TestCase):
             payload_schemas=[],
             bot_manager=ResourceManager([]),
             payload_manager=ResourceManager([]),
-            refuel_duration=100,
-            remaining_flight_time_at_refuel=200,
-            refuel_anticipation_buffer=100
+            refuel_duration=datetime.timedelta(seconds=100),
+            remaining_flight_time_at_refuel=datetime.timedelta(seconds=200),
+            refuel_anticipation_buffer=datetime.timedelta(seconds=100)
         )
 
         # This will fail because the flight plan final leg isnt targetting a tower
@@ -176,11 +176,11 @@ class TestScheduler(unittest.TestCase):
             }),
             ActionWaypoint(
                 action="refuel_anticipation_buffer",
-                duration=10
+                duration=datetime.timedelta(seconds=10)
             ),
             ActionWaypoint(
                 action="giving_recharge",
-                duration=10
+                duration=datetime.timedelta(seconds=10)
             ),
             LegWaypoint(positions={
                 'from': [0,0,5],
@@ -224,9 +224,9 @@ class TestScheduler(unittest.TestCase):
             payload_schemas=[],
             bot_manager=ResourceManager([]),
             payload_manager=ResourceManager([]),
-            refuel_duration=100,
-            remaining_flight_time_at_refuel=150,
-            refuel_anticipation_buffer=100
+            refuel_duration=datetime.timedelta(seconds=100),
+            remaining_flight_time_at_refuel=datetime.timedelta(seconds=150),
+            refuel_anticipation_buffer=datetime.timedelta(seconds=100)
         )
 
         start_time = datetime.datetime(2010, 5, 5, 12, 30, 0)
@@ -274,11 +274,11 @@ class TestScheduler(unittest.TestCase):
             }),
             ActionWaypoint(
                 action="refuel_anticipation_buffer",
-                duration=10
+                duration=datetime.timedelta(seconds=10)
             ),
             ActionWaypoint(
                 action="giving_recharge",
-                duration=10,
+                duration=datetime.timedelta(seconds=10),
                 id="critical"
             ),
             LegWaypoint(positions={
@@ -323,9 +323,9 @@ class TestScheduler(unittest.TestCase):
             payload_schemas=[],
             bot_manager=ResourceManager([]),
             payload_manager=ResourceManager([]),
-            refuel_duration=100,
-            remaining_flight_time_at_refuel=150,
-            refuel_anticipation_buffer=100
+            refuel_duration=datetime.timedelta(seconds=100),
+            remaining_flight_time_at_refuel=datetime.timedelta(seconds=150),
+            refuel_anticipation_buffer=datetime.timedelta(seconds=100)
         )
 
         waypoint_eta = datetime.datetime(2010, 5, 5, 12, 30, 20)
@@ -426,9 +426,9 @@ class TestScheduler(unittest.TestCase):
             payload_schemas=[],
             bot_manager=ResourceManager([]),
             payload_manager=ResourceManager([]),
-            refuel_duration=100,
-            remaining_flight_time_at_refuel=200,
-            refuel_anticipation_buffer=100
+            refuel_duration=datetime.timedelta(seconds=100),
+            remaining_flight_time_at_refuel=datetime.timedelta(seconds=200),
+            refuel_anticipation_buffer=datetime.timedelta(seconds=100)
         )
 
         expected_waypoints = [
@@ -438,7 +438,7 @@ class TestScheduler(unittest.TestCase):
             }),
             ActionWaypoint(
                 action="being_recharged",
-                duration=100
+                duration=datetime.timedelta(seconds=100)
             ),
             LegWaypoint(positions={
                 'from': [0,0,200],
@@ -446,7 +446,7 @@ class TestScheduler(unittest.TestCase):
             }),
             ActionWaypoint(
                 action="being_recharged",
-                duration=100
+                duration=datetime.timedelta(seconds=100)
             ),
             LegWaypoint(positions={
                 'from': [0,0,400],
@@ -454,7 +454,7 @@ class TestScheduler(unittest.TestCase):
             }),
             ActionWaypoint(
                 action="being_recharged",
-                duration=100
+                duration=datetime.timedelta(seconds=100)
             ),
             LegWaypoint(positions={
                 'from': [0,0,600],
@@ -462,7 +462,7 @@ class TestScheduler(unittest.TestCase):
             }),
             ActionWaypoint(
                 action="being_recharged",
-                duration=100
+                duration=datetime.timedelta(seconds=100)
             ),
             LegWaypoint(positions={
                 'from': [0,0,800],
@@ -516,7 +516,7 @@ class TestScheduler(unittest.TestCase):
             }),
             ActionWaypoint(
                 action="payload",
-                duration=500
+                duration=datetime.timedelta(seconds=500)
             ),
             LegWaypoint(positions={
                 'from': [0,0,1000],
@@ -560,9 +560,9 @@ class TestScheduler(unittest.TestCase):
             payload_schemas=[],
             bot_manager=ResourceManager([]),
             payload_manager=ResourceManager([]),
-            refuel_duration=10,
-            remaining_flight_time_at_refuel=20,
-            refuel_anticipation_buffer=10
+            refuel_duration=datetime.timedelta(seconds=10),
+            remaining_flight_time_at_refuel=datetime.timedelta(seconds=20),
+            refuel_anticipation_buffer=datetime.timedelta(seconds=10)
         )
 
         expected_waypoints = [
@@ -572,7 +572,7 @@ class TestScheduler(unittest.TestCase):
             }),
             ActionWaypoint(
                 action="being_recharged",
-                duration=10
+                duration=datetime.timedelta(seconds=10)
             ),
             LegWaypoint(positions={
                 'from': [0,0,470],
@@ -580,7 +580,7 @@ class TestScheduler(unittest.TestCase):
             }),
             ActionWaypoint(
                 action="being_recharged",
-                duration=10
+                duration=datetime.timedelta(seconds=10)
             ),
             LegWaypoint(positions={
                 'from': [0,0,940],
@@ -588,15 +588,15 @@ class TestScheduler(unittest.TestCase):
             }),
             ActionWaypoint(
                 action="payload",
-                duration=410
+                duration=datetime.timedelta(seconds=410)
             ),
             ActionWaypoint(
                 action="being_recharged",
-                duration=10
+                duration=datetime.timedelta(seconds=10)
             ),
             ActionWaypoint(
                 action="payload",
-                duration=90
+                duration=datetime.timedelta(seconds=90)
             ),
             LegWaypoint(positions={
                 'from': [0,0,1000],
@@ -604,7 +604,7 @@ class TestScheduler(unittest.TestCase):
             }),
             ActionWaypoint(
                 action="being_recharged",
-                duration=10
+                duration=datetime.timedelta(seconds=10)
             ),
             LegWaypoint(positions={
                 'from': [0,0,620],
@@ -612,7 +612,7 @@ class TestScheduler(unittest.TestCase):
             }),
             ActionWaypoint(
                 action="being_recharged",
-                duration=10
+                duration=datetime.timedelta(seconds=10)
             ),
             LegWaypoint(positions={
                 'from': [0,0,150],
@@ -665,11 +665,11 @@ class TestScheduler(unittest.TestCase):
             }),
             ActionWaypoint(
                 action="refuel_anticipation_buffer",
-                duration=100
+                duration=datetime.timedelta(seconds=100)
             ),
             ActionWaypoint(
                 action="giving_recharge",
-                duration=100
+                duration=datetime.timedelta(seconds=100)
             ),
             LegWaypoint(positions={
                 'from': [0,0,500],
@@ -713,9 +713,9 @@ class TestScheduler(unittest.TestCase):
             payload_schemas=[],
             bot_manager=ResourceManager([]),
             payload_manager=ResourceManager([]),
-            refuel_duration=100,
-            remaining_flight_time_at_refuel=150,
-            refuel_anticipation_buffer=100
+            refuel_duration=datetime.timedelta(seconds=100),
+            remaining_flight_time_at_refuel=datetime.timedelta(seconds=150),
+            refuel_anticipation_buffer=datetime.timedelta(seconds=100)
         )
 
         expected_waypoints = [
@@ -725,7 +725,7 @@ class TestScheduler(unittest.TestCase):
             }),
             ActionWaypoint(
                 action="being_recharged",
-                duration=100
+                duration=datetime.timedelta(seconds=100)
             ),
             LegWaypoint(positions={
                 'from': [0,0,250],
@@ -733,15 +733,15 @@ class TestScheduler(unittest.TestCase):
             }),
             ActionWaypoint(
                 action="being_recharged",
-                duration=100
+                duration=datetime.timedelta(seconds=100)
             ),
             ActionWaypoint(
                 action="refuel_anticipation_buffer",
-                duration=100
+                duration=datetime.timedelta(seconds=100)
             ),
             ActionWaypoint(
                 action="giving_recharge",
-                duration=100
+                duration=datetime.timedelta(seconds=100)
             ),
             LegWaypoint(positions={
                 'from': [0,0,500],
@@ -749,7 +749,7 @@ class TestScheduler(unittest.TestCase):
             }),
             ActionWaypoint(
                 action="being_recharged",
-                duration=100
+                duration=datetime.timedelta(seconds=100)
             ),
             LegWaypoint(positions={
                 'from': [0,0,450],
@@ -757,7 +757,7 @@ class TestScheduler(unittest.TestCase):
             }),
             ActionWaypoint(
                 action="being_recharged",
-                duration=100
+                duration=datetime.timedelta(seconds=100)
             ),
             LegWaypoint(positions={
                 'from': [0,0,200],
@@ -806,7 +806,7 @@ class TestScheduler(unittest.TestCase):
 
         waypoint = ActionWaypoint(
             action="being_recharged",
-            duration=100
+            duration=datetime.timedelta(seconds=100)
         )
 
         waypoint.position = [50,50,50]
@@ -851,11 +851,98 @@ class TestScheduler(unittest.TestCase):
             payload_schemas=[],
             bot_manager=ResourceManager([]),
             payload_manager=ResourceManager([]),
-            refuel_duration=100,
-            remaining_flight_time_at_refuel=150,
-            refuel_anticipation_buffer=100
+            refuel_duration=datetime.timedelta(seconds=100),
+            remaining_flight_time_at_refuel=datetime.timedelta(seconds=150),
+            refuel_anticipation_buffer=datetime.timedelta(seconds=100)
         )
 
         nearest_towers = scheduler.get_nearest_towers_to_waypoint(waypoint)
         expected_nearest_towers = [towers[1], towers[0], towers[2]]
         self.assertEqual(nearest_towers, expected_nearest_towers)
+
+    def test_stretch_flight_plan(self):
+        bot_schemas = [
+            BotSchema(
+                flight_time=500,
+                speed=1,
+                bot_type="Carrier",
+                model="CarrierI",
+                cruising_altitude=100
+            )
+        ]
+
+        waypoints = [
+            LegWaypoint(positions={
+                'from': [0,0,0],
+                'to': [0,0,1000]
+            }),
+            LegWaypoint(positions={
+                'from': [0,0,1000],
+                'to': [0,0,0]
+            })
+        ]
+
+        meta = FlightPlanMeta(
+            bot_model=BotSchema(
+                flight_time=500,
+                speed=1,
+                bot_type="Carrier",
+                model="CarrierI",
+                cruising_altitude=100
+            )
+        )
+
+        flight_plan = FlightPlan(
+            waypoints=waypoints,
+            starting_tower='TowerOne',
+            finishing_tower='TowerOne',
+            meta=meta
+        )
+
+        towers = [
+            Tower(
+                id='TowerOne',
+                position=[0,0,0],
+                parallel_launchers=1,
+                parallel_landers=1,
+                launch_time=1,
+                landing_time=1,
+                bot_capacity=10,
+                payload_capacity=10
+            )
+        ]
+
+        scheduler = Scheduler(
+            towers=towers,
+            bot_schemas=bot_schemas,
+            payload_schemas=[],
+            bot_manager=ResourceManager([]),
+            payload_manager=ResourceManager([]),
+            refuel_duration=datetime.timedelta(seconds=100),
+            remaining_flight_time_at_refuel=datetime.timedelta(seconds=200),
+            refuel_anticipation_buffer=datetime.timedelta(seconds=100)
+        )
+
+        now = datetime.datetime.now()
+
+        scheduler.approximate_timings(
+            flight_plan=flight_plan,
+            launch_time=now
+        )
+
+        scheduler.add_positions_to_action_waypoints(flight_plan)
+
+        start_time_before_stretch = flight_plan.start_time
+        end_time_before_stretch = flight_plan.end_time
+
+        scheduler.stretch_flight_plan(
+            flight_plan=flight_plan,
+            start_delta=datetime.timedelta(minutes=1),
+            end_delta=datetime.timedelta(minutes=1)
+        )
+
+        print(f"Original start time {start_time_before_stretch} and end time {end_time_before_stretch}")
+        print(f"New starting {flight_plan.start_time} and new end time {flight_plan.end_time}")
+        self.assertEqual(flight_plan.start_time, start_time_before_stretch - datetime.timedelta(minutes=1))
+        self.assertEqual(flight_plan.end_time, end_time_before_stretch + datetime.timedelta(minutes=1))
+        self.assertEqual(len(flight_plan.waypoints), 6)

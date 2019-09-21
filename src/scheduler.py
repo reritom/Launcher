@@ -30,9 +30,9 @@ class Scheduler:
         payload_schemas: List[PayloadSchema],
         bot_manager: ResourceManager,
         payload_manager: ResourceManager,
-        refuel_duration: int,
-        remaining_flight_time_at_refuel: int,
-        refuel_anticipation_buffer: str
+        refuel_duration: datetime.timedelta,
+        remaining_flight_time_at_refuel: datetime.timedelta,
+        refuel_anticipation_buffer: datetime.timedelta
         ):
 
         # Tower objects with their inventories and availabilities
@@ -60,7 +60,7 @@ class Scheduler:
         self.remaining_flight_time_at_refuel = remaining_flight_time_at_refuel
 
         # The maximum seconds that a flight plan can be stretched to try and make it fit into tower launch and landing windows
-        self.maximum_flight_plan_stretch_duration = 500
+        self.maximum_flight_plan_stretch_duration = datetime.timedelta(seconds=500)
 
         # To track allocations made per flight plan, mapped to their related deallocator
         # This is like a mock db
@@ -441,7 +441,7 @@ class Scheduler:
             waypoint.start_time = launch_time if not index else flight_plan.waypoints[index - 1].end_time
 
             if waypoint.is_action:
-                waypoint.end_time = waypoint.start_time + datetime.timedelta(seconds=waypoint.duration)
+                waypoint.end_time = waypoint.start_time + waypoint.duration
             elif waypoint.is_leg:
                 bot = flight_plan.meta.bot_model
                 waypoint.end_time = waypoint.start_time + datetime.timedelta(seconds=distance_between(waypoint.from_pos, waypoint.to_pos)/bot.speed)
@@ -455,7 +455,7 @@ class Scheduler:
 
         dummy_waypoint = ActionWaypoint(
             action='dummy',
-            duration=1
+            duration=datetime.timedelta(seconds=1)
         )
 
         flight_plan.waypoints.append(dummy_waypoint)
@@ -491,14 +491,14 @@ class Scheduler:
                 # Make the initial approximations
                 reference_waypoint.start_time = waypoint_eta
                 reference_waypoint.end_time = (
-                    waypoint_eta + datetime.timedelta(seconds=reference_waypoint.duration)
+                    waypoint_eta + reference_waypoint.duration
                     if reference_waypoint.is_action
                     else waypoint_eta + datetime.timedelta(seconds=distance_between(reference_waypoint.from_pos, reference_waypoint.to_pos)/bot.speed)
                 )
             else:
                 # Work backwards from the timing we know
                 reference_waypoint.start_time = (
-                    flight_plan.waypoints[index + 1].start_time - datetime.timedelta(seconds=reference_waypoint.duration)
+                    flight_plan.waypoints[index + 1].start_time - reference_waypoint.duration
                     if reference_waypoint.is_action
                     else flight_plan.waypoints[index + 1].start_time - datetime.timedelta(seconds=distance_between(reference_waypoint.from_pos, reference_waypoint.to_pos)/bot.speed)
                 )
@@ -522,20 +522,25 @@ class Scheduler:
 
         finished = False
         while not finished:
-            time_since_last_recharge = 0
+            time_since_last_recharge = datetime.timedelta(seconds=0)
 
             for index, waypoint in enumerate(flight_plan.waypoints):
                 if waypoint.is_action:
                     if waypoint.is_being_recharged:
                         #print("Waypoint is being recharged")
-                        time_since_last_recharge = 0
+                        time_since_last_recharge = datetime.timedelta(seconds=0)
                         continue
 
                     # Else we will look at the duration of the action, and split it if necessary
                     time_since_last_recharge += waypoint.duration
 
                     bot_schema = flight_plan.meta.bot_model
-                    threshold = bot_schema.flight_time - self.remaining_flight_time_at_refuel - self.refuel_duration
+                    threshold = (
+                        datetime.timedelta(seconds=bot_schema.flight_time)
+                        - self.remaining_flight_time_at_refuel
+                        - self.refuel_duration
+                    )
+
                     if time_since_last_recharge > threshold:
                         # If the waypoint is giving performing a recharge, then we can't interrupt it
                         if waypoint.is_giving_recharge:
@@ -615,10 +620,15 @@ class Scheduler:
 
                 elif waypoint.is_leg:
                     bot = flight_plan.meta.bot_model
-                    leg_time = int(distance_between(waypoint.from_pos, waypoint.to_pos)/bot.speed)
+                    leg_time = datetime.timedelta(seconds=int(distance_between(waypoint.from_pos, waypoint.to_pos)/bot.speed))
                     time_since_last_recharge += leg_time
 
-                    threshold = bot.flight_time - self.remaining_flight_time_at_refuel - self.refuel_duration
+                    threshold = (
+                        datetime.timedelta(seconds=bot.flight_time)
+                        - self.remaining_flight_time_at_refuel
+                        - self.refuel_duration
+                    )
+
                     #print(f"Leg, time since last {time_since_last_recharge}, threshold {threshold}")
                     if time_since_last_recharge > threshold:
                         overshoot = time_since_last_recharge - threshold
@@ -887,7 +897,7 @@ class Scheduler:
             - self.refuel_duration
             - self.remaining_flight_time_at_refuel
             - self.refuel_anticipation_buffer
-            - 60 # An additional buffer
+            - datetime.timedelta(seconds=60) # An additional buffer
         )
 
         #THIS IS WRONG, AND ALSO CONSIDER THAT IF THE NEWLY CALCULATED RECHARGE POINT IS AT THE TOWER LOCATION, DONT BOTHER
@@ -1118,10 +1128,14 @@ class Scheduler:
         For a given flight plan, add buffer waypoints at the beginning and end of the flight plan
         """
         logger.info(f"Stretching flight plan {flight_plan.id} by start {start_delta} and end {end_delta}")
+
         launch_tower = self.get_tower_by_id(flight_plan.starting_tower)
         landing_tower = self.get_tower_by_id(flight_plan.finishing_tower)
+
         logger.debug(f"Flight plan meta is {flight_plan.meta}")
         bot = flight_plan.meta.bot_model
+        original_start_time = flight_plan.start_time
+        original_end_time = flight_plan.end_time
 
         if (
             flight_plan.waypoints[0].is_leg
@@ -1139,9 +1153,11 @@ class Scheduler:
                 and flight_plan.waypoints[-2].is_action
                 and flight_plan.waypoints[-2].action == 'waiting'
             ):
+                logger.debug("Extending an existing landing wait")
                 flight_plan.waypoints[-2].duration = flight_plan.waypoints[-2].duration + end_delta
         else:
             logger.debug("Creating new stretch")
+            logger.debug(f"Waypoints before new ones {len(flight_plan.waypoints)}")
             # We are stretching for the first time on this flight plan
             # TODO, Really the towers should define their waiting areas
             early_launch_leg = LegWaypoint(
@@ -1156,16 +1172,22 @@ class Scheduler:
             flight_plan.waypoints.insert(0, early_launch_leg)
             flight_plan.waypoints[1].positions['from'] = early_launch_leg.to_pos
 
-            early_launch_leg_time = distance_between(early_launch_leg.to_pos, early_launch_leg.from_pos) / bot.speed
-            early_launch_leg_time = datetime.timedelta(seconds=int(early_launch_leg_time))
+            early_launch_leg_time = str(distance_between(early_launch_leg.to_pos, early_launch_leg.from_pos) / bot.speed)
+            early_launch_leg_time = datetime.timedelta(
+                seconds=int(early_launch_leg_time.split('.')[0]),
+                microseconds=int(early_launch_leg_time.split('.')[1]) * 1000
+            )
+            logger.debug(f"Early launch leg time {early_launch_leg_time}")
 
             # For the remaining time difference, create a waiting action
-            if early_launch_leg_time > start_delta:
+            if start_delta > early_launch_leg_time:
+                logger.debug("Making waiting waypoint for launch")
                 early_launch_waiting_action = ActionWaypoint(
-                    duration=(start_delta-early_launch_leg_time).seconds,
+                    duration=start_delta-early_launch_leg_time,
                     action="waiting",
                     generated=True
                 )
+                logger.debug(f"Launching wait time {early_launch_waiting_action.duration}")
                 flight_plan.waypoints.insert(1, early_launch_waiting_action)
 
             late_landing_leg = LegWaypoint(
@@ -1180,17 +1202,39 @@ class Scheduler:
             flight_plan.waypoints.append(late_landing_leg)
             flight_plan.waypoints[-2].positions['to'] = late_landing_leg.from_pos
 
-            late_landing_leg_time = distance_between(late_landing_leg.to_pos, late_landing_leg.from_pos) / bot.speed
-            late_landing_leg_time = datetime.timedelta(seconds=int(late_landing_leg_time))
+            late_landing_leg_time = str(distance_between(late_landing_leg.to_pos, late_landing_leg.from_pos) / bot.speed)
+            late_landing_leg_time = datetime.timedelta(
+                seconds=int(late_landing_leg_time.split('.')[0]),
+                microseconds=int(late_landing_leg_time.split('.')[1]) * 1000
+            )
+            logger.debug(f"Late landing leg time {late_landing_leg_time}")
 
             # For the remaining time difference, create a waiting action
-            if late_landing_leg_time > end_delta:
+            if end_delta > late_landing_leg_time:
+                logger.debug("Making waiting waypoint for landing")
                 late_landing_waiting_action = ActionWaypoint(
-                    duration=(end_delta-late_landing_leg_time).seconds,
+                    duration=end_delta-late_landing_leg_time,
                     action="waiting",
                     generated=True
                 )
+                logger.debug(f"Landing wait time {late_landing_waiting_action.duration}")
                 flight_plan.waypoints.insert(-2, late_landing_waiting_action)
+
+        # We reapproximate the timings based on the delta
+        self.approximate_timings(
+            flight_plan=flight_plan,
+            launch_time=original_start_time - start_delta
+        )
+
+        self.add_positions_to_action_waypoints(flight_plan)
+
+        logger.debug(f"Waypoints after new ones {len(flight_plan.waypoints)}")
+
+        old_delta = original_end_time - original_start_time
+        new_delta = flight_plan.end_time - flight_plan.start_time
+        logger.debug(f"Old flight plan duration {old_delta}, new duration {new_delta} by extending {start_delta} and {end_delta}")
+        logger.debug(f"New flight time {new_delta}, expected new flight time {old_delta + start_delta + end_delta}")
+        assert old_delta + start_delta + end_delta == new_delta, f"{old_delta + start_delta + end_delta} != {new_delta}"
 
     def fit_flight_plan_into_tower_allocations(self, flight_plan: FlightPlan) -> bool:
         """
@@ -1280,6 +1324,7 @@ class Scheduler:
         )
 
         # We need to reapproximate the timings to account for the new legs
+        """ These should be done as part of the stretch
         self.approximate_timings(
             flight_plan=flight_plan_copy,
             launch_time=nearest_launch_window[2]
@@ -1288,6 +1333,7 @@ class Scheduler:
         logger.debug(f"Flight plan waypoint count after stretch {len(flight_plan_copy.waypoints)}")
         logger.debug(f"Flight plan start and end after stretching {flight_plan_copy.start_time} {flight_plan_copy.end_time}")
         self.add_positions_to_action_waypoints(flight_plan_copy)
+        """
 
         # Recalculate the flight plan to add the refueling points
         logger.debug("Recalculation in stretch")

@@ -1,10 +1,13 @@
-import unittest
+import unittest, datetime
 
 from .flight_plan import FlightPlan
 from .leg_waypoint import LegWaypoint
 from .action_waypoint import ActionWaypoint
 
 class TestFlightPlan(unittest.TestCase):
+    def setUp(self):
+        self.maxDiff = None
+        
     def test_flight_plan_to_dict(self):
         waypoints = [
             LegWaypoint(positions={
@@ -13,7 +16,7 @@ class TestFlightPlan(unittest.TestCase):
             }),
             ActionWaypoint(
                 action="TestAction",
-                duration=10
+                duration=datetime.timedelta(seconds=10)
             ),
             LegWaypoint(positions={
                 'from': [10,10,10],
@@ -44,7 +47,7 @@ class TestFlightPlan(unittest.TestCase):
               },
               {
                  'action':'TestAction',
-                 'duration':10,
+                 'duration':"00:00:10",
                  'id':'08c9d42f-c0d2-44b2-ab1c-863d1fa13975',
                  'type':'action',
                  'generated': False
@@ -83,7 +86,7 @@ class TestFlightPlan(unittest.TestCase):
             }),
             ActionWaypoint(
                 action="TestAction",
-                duration=10
+                duration=datetime.timedelta(seconds=10)
             ),
             LegWaypoint(positions={
                 'from': [10,10,10],
@@ -98,7 +101,7 @@ class TestFlightPlan(unittest.TestCase):
             }),
             ActionWaypoint(
                 action="TestAction",
-                duration=10
+                duration=datetime.timedelta(seconds=10)
             ),
             LegWaypoint(positions={
                 'from': [10,10,10],
@@ -130,7 +133,7 @@ class TestFlightPlan(unittest.TestCase):
             }),
             ActionWaypoint(
                 action="TestAction",
-                duration=10
+                duration=datetime.timedelta(seconds=10)
             ),
             LegWaypoint(positions={
                 'from': [10,10,10],
