@@ -106,7 +106,7 @@ scheduler = Scheduler(
 )
 
 simulator = Simulator(towers=towers, bot_schemas=bot_schemas)
-when = datetime.datetime.now() + datetime.timedelta(days=1)
+when = datetime.datetime(2020, 5, 5, 12, 30, 20) + datetime.timedelta(days=1)
 
 # Prepare the storage
 dir = os.path.dirname(os.path.realpath(__file__))

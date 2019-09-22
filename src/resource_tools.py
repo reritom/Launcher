@@ -10,9 +10,10 @@ from .bot import Bot
 from .bot_schema import BotSchema
 
 def print_waypoints(flight_plan):
-    string = '\n'.join([repr(waypoint) for waypoint in flight_plan.waypoints])
-    logger.debug(string)
-    return string
+    logger.debug("Print waypoints")
+    for waypoint in flight_plan.waypoints:
+        logger.debug(repr(waypoint))
+    logger.debug("End of printing waypoints")
 
 def get_payload_by_id(id: str, payloads: List[Payload]) -> Optional[Payload]:
     """

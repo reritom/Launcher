@@ -1160,24 +1160,72 @@ class Scheduler:
             logger.debug(f"Waypoints before new ones {len(flight_plan.waypoints)}")
             # We are stretching for the first time on this flight plan
             # TODO, Really the towers should define their waiting areas
+
+            # The existing leg will be modified, so we need to track the original duration of it
+            real_first_leg_original_duration = str(distance_between(flight_plan.waypoints[0].to_pos, flight_plan.waypoints[0].from_pos) / bot.speed)
+            logger.debug(f"Original first leg duration before timedelta {real_first_leg_original_duration}")
+            real_first_leg_original_duration = datetime.timedelta(
+                seconds=int(real_first_leg_original_duration.split('.')[0]),
+                microseconds=int(real_first_leg_original_duration.split('.')[1][:6])
+            )
+            logger.debug(f"Original first leg duration {real_first_leg_original_duration}")
+
+            # The modified first leg, the new first leg, and the waiting period need to match this constraint
+            required_duration_until_end_of_first_real_leg = real_first_leg_original_duration + start_delta
+            logger.debug(f"Required duration until end of first real leg {required_duration_until_end_of_first_real_leg}")
+
+            # Determine the displacement of the waiting area in an inefficient non-mathematical way
+            for i in range(1, 22):
+                # Create the delta for the first leg (the new one)
+                potential_new_first_leg_time = str(i/bot.speed)
+                potential_new_first_leg_time = datetime.timedelta(
+                    seconds=int(potential_new_first_leg_time.split('.')[0]),
+                    microseconds=int(potential_new_first_leg_time.split('.')[1][:6])
+                )
+
+                # Create the delta for the modified existing first leg
+                modified_original_first_leg_duration = str(distance_between(
+                    [
+                        launch_tower.position[0],
+                        launch_tower.position[1],
+                        launch_tower.position[2] + i
+                    ],
+                    flight_plan.waypoints[0].to_pos
+                ) / bot.speed)
+
+                modified_original_first_leg_duration = datetime.timedelta(
+                    seconds=int(modified_original_first_leg_duration.split('.')[0]),
+                    microseconds=int(modified_original_first_leg_duration.split('.')[1][:6])
+                )
+
+                this_total_time = modified_original_first_leg_duration + potential_new_first_leg_time
+                logger.debug(f"For {i}, total time of legs is {this_total_time}")
+
+                if this_total_time > required_duration_until_end_of_first_real_leg:
+                    logger.debug(f"Which is greater than {required_duration_until_end_of_first_real_leg}")
+                    # We will use the i-1 then
+                    break
+
+            logger.debug(f"Launch leg displacement is {i-1}")
+
             early_launch_leg = LegWaypoint(
                 positions={
                     'from': launch_tower.position,
-                    'to': [launch_tower.position[0], launch_tower.position[1], launch_tower.position[2] + 20]
+                    'to': [launch_tower.position[0], launch_tower.position[1], launch_tower.position[2] + i - 1]
                 },
                 generated=True
             )
 
-            # Insert the new first leg and modify the existing leg
-            flight_plan.waypoints.insert(0, early_launch_leg)
-            flight_plan.waypoints[1].positions['from'] = early_launch_leg.to_pos
-
             early_launch_leg_time = str(distance_between(early_launch_leg.to_pos, early_launch_leg.from_pos) / bot.speed)
             early_launch_leg_time = datetime.timedelta(
                 seconds=int(early_launch_leg_time.split('.')[0]),
-                microseconds=int(early_launch_leg_time.split('.')[1]) * 1000
+                microseconds=int(early_launch_leg_time.split('.')[1][:6])
             )
             logger.debug(f"Early launch leg time {early_launch_leg_time}")
+
+            # Insert the new first leg and modify the existing leg
+            flight_plan.waypoints.insert(0, early_launch_leg)
+            flight_plan.waypoints[1].positions['from'] = early_launch_leg.to_pos
 
             # For the remaining time difference, create a waiting action
             if start_delta > early_launch_leg_time:
@@ -1189,25 +1237,75 @@ class Scheduler:
                 )
                 logger.debug(f"Launching wait time {early_launch_waiting_action.duration}")
                 flight_plan.waypoints.insert(1, early_launch_waiting_action)
+                assert start_delta == early_launch_waiting_action.duration + early_launch_leg_time
+
+            # ------ For handling the landing -------
+
+            # The existing leg will be modified, so we need to track the original duration of it
+            real_last_leg_original_duration = str(distance_between(flight_plan.waypoints[-1].to_pos, flight_plan.waypoints[-1].from_pos) / bot.speed)
+            real_last_leg_original_duration = datetime.timedelta(
+                seconds=int(real_last_leg_original_duration.split('.')[0]),
+                microseconds=int(real_last_leg_original_duration.split('.')[1][:6])
+            )
+
+            logger.debug(f"Real last leg original duration {real_last_leg_original_duration}")
+
+            # The modified last leg, the new last leg, and the waiting period need to match this constraint
+            required_duration_until_start_of_last_real_leg = real_last_leg_original_duration + end_delta
+            logger.debug(f"Required duration from start of last real leg {required_duration_until_start_of_last_real_leg}")
+
+            # Determine the displacement of the waiting area in an inefficient non-mathematical way
+            for i in range(1, 22):
+                # Create the delta for the last leg (the new one)
+                potential_new_last_leg_time = str(i/bot.speed)
+                potential_new_last_leg_time = datetime.timedelta(
+                    seconds=int(potential_new_last_leg_time.split('.')[0]),
+                    microseconds=int(potential_new_last_leg_time.split('.')[1][:6])
+                )
+
+                # Create the delta for the modified existing first leg
+                modified_original_last_leg_duration = str(distance_between(
+                    [
+                        landing_tower.position[0],
+                        landing_tower.position[1],
+                        landing_tower.position[2] + i
+                    ],
+                    flight_plan.waypoints[-1].from_pos
+                ) / bot.speed)
+
+                modified_original_last_leg_duration = datetime.timedelta(
+                    seconds=int(modified_original_last_leg_duration.split('.')[0]),
+                    microseconds=int(modified_original_last_leg_duration.split('.')[1][:6])
+                )
+
+                this_total_time = modified_original_first_leg_duration + potential_new_first_leg_time
+                logger.debug(f"For {i}, total leg time {this_total_time}")
+
+                if this_total_time > required_duration_until_start_of_last_real_leg:
+                    logger.debug(f"Which is greater than {required_duration_until_start_of_last_real_leg}")
+                    # We will use the i-1 then
+                    break
+
+            logger.debug(f"Landing leg displacement is {i-1}")
 
             late_landing_leg = LegWaypoint(
                 positions={
-                    'from': [landing_tower.position[0], landing_tower.position[1], landing_tower.position[2] + 20],
-                    'to': launch_tower.position
+                    'from': [landing_tower.position[0], landing_tower.position[1], landing_tower.position[2] + i - 1],
+                    'to': landing_tower.position
                 },
                 generated=True
             )
 
-            # Insert the new final leg and modify the existing final leg
-            flight_plan.waypoints.append(late_landing_leg)
-            flight_plan.waypoints[-2].positions['to'] = late_landing_leg.from_pos
-
             late_landing_leg_time = str(distance_between(late_landing_leg.to_pos, late_landing_leg.from_pos) / bot.speed)
             late_landing_leg_time = datetime.timedelta(
                 seconds=int(late_landing_leg_time.split('.')[0]),
-                microseconds=int(late_landing_leg_time.split('.')[1]) * 1000
+                microseconds=int(late_landing_leg_time.split('.')[1][:6])
             )
             logger.debug(f"Late landing leg time {late_landing_leg_time}")
+
+            # Insert the new last leg and modify the existing leg
+            flight_plan.waypoints[-1].positions['to'] = late_landing_leg.from_pos
+            flight_plan.waypoints.append(late_landing_leg)
 
             # For the remaining time difference, create a waiting action
             if end_delta > late_landing_leg_time:
@@ -1218,7 +1316,10 @@ class Scheduler:
                     generated=True
                 )
                 logger.debug(f"Landing wait time {late_landing_waiting_action.duration}")
-                flight_plan.waypoints.insert(-2, late_landing_waiting_action)
+                flight_plan.waypoints.insert(-1, late_landing_waiting_action)
+                assert end_delta == late_landing_waiting_action.duration + late_landing_leg_time
+
+        print_waypoints(flight_plan)
 
         # We reapproximate the timings based on the delta
         self.approximate_timings(
@@ -1227,14 +1328,13 @@ class Scheduler:
         )
 
         self.add_positions_to_action_waypoints(flight_plan)
-
         logger.debug(f"Waypoints after new ones {len(flight_plan.waypoints)}")
 
-        old_delta = original_end_time - original_start_time
-        new_delta = flight_plan.end_time - flight_plan.start_time
-        logger.debug(f"Old flight plan duration {old_delta}, new duration {new_delta} by extending {start_delta} and {end_delta}")
-        logger.debug(f"New flight time {new_delta}, expected new flight time {old_delta + start_delta + end_delta}")
-        assert old_delta + start_delta + end_delta == new_delta, f"{old_delta + start_delta + end_delta} != {new_delta}"
+        old_duration = original_end_time - original_start_time
+        new_duration = flight_plan.end_time - flight_plan.start_time
+        logger.debug(f"Old flight plan duration {old_duration}, new duration {new_duration} by extending {start_delta} and {end_delta}")
+        logger.debug(f"New flight time {new_duration}, expected new flight time {old_duration + start_delta + end_delta}")
+        assert old_duration + start_delta + end_delta == new_duration, old_duration + start_delta + end_delta - new_duration
 
     def fit_flight_plan_into_tower_allocations(self, flight_plan: FlightPlan) -> bool:
         """

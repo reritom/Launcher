@@ -8,6 +8,7 @@ class ActionWaypoint(Waypoint):
     def __init__(self, action: str, duration: datetime.timedelta, id: str = None, position: list = None, generated=False):
         self.action = action
         assert isinstance(duration, datetime.timedelta)
+        assert duration.total_seconds() >= 0
         self.duration = duration
 
         # This can be optionally filled later
