@@ -33,7 +33,7 @@ class ActionWaypoint(Waypoint):
             value
             if len(value) == 2
             else f"0{value}"
-            for value in str(self.duration).split(":")
+            for value in str(self.duration).split('.')[0].split(":")
         ])
 
         dict_self = {

@@ -140,7 +140,13 @@ with open(os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', 'raw_flight_pl
 logger.info("Part 2")
 flight_plan = FlightPlan.from_file(f"./examples/demo_{DEMO_NUMBER}/flight_plan_1.json")
 flight_plan.set_meta(meta)
-schedule = scheduler.determine_schedule(flight_plan=flight_plan, launch_time=when)
+
+try:
+    schedule = scheduler.determine_schedule(flight_plan=flight_plan, launch_time=when)
+except:
+    logger.critical("Failed to create schedule", exc_info=True)
+    sys.exit(1)
+
 simulator.simulate_flight_plan(flight_plan)#, save_path=os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', 'calculated_flight_plan.mp4'))
 
 with open(os.path.join(dir, 'demo', f'demo_{DEMO_NUMBER}', 'raw', 'calculated_flight_plan.json'), 'w') as f:

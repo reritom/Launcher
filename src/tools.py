@@ -1,12 +1,26 @@
 import math as maths
 import json
+from decimal import Decimal
 from typing import List
+import datetime
 
 class ScheduleError(Exception):
     pass
 
 class TrackerError(Exception):
     pass
+
+def without_microseconds(delta: datetime.timedelta) -> datetime.timedelta:
+    """
+    For a given timedelta object remove the microseconds
+    """
+    delta_string = str(delta)
+    seconds_with_micro = delta_string.split(":")[-1]
+    rounded_seconds = round(Decimal(seconds_with_micro))
+    new = delta - datetime.timedelta(microseconds=delta.microseconds, seconds=delta.seconds)
+    new = new + datetime.timedelta(seconds=rounded_seconds)
+    assert new.microseconds == 0
+    return new
 
 def distance_between(position_a: tuple, position_b: tuple) -> tuple:
     return maths.sqrt(

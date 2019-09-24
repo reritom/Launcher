@@ -1,4 +1,5 @@
 from typing import List, Optional
+import datetime
 import logging
 
 logger = logging.getLogger(__name__)
@@ -8,12 +9,23 @@ from .payload_schema import PayloadSchema
 from .flight_plan_meta import FlightPlanMeta
 from .bot import Bot
 from .bot_schema import BotSchema
+from .tools import distance_between
 
 def print_waypoints(flight_plan):
     logger.debug("Print waypoints")
     for waypoint in flight_plan.waypoints:
         logger.debug(repr(waypoint))
     logger.debug("End of printing waypoints")
+
+def get_waypoint_duration(waypoint, bot_speed: int) -> datetime.timedelta:
+    if waypoint.is_action:
+        return waypoint.duration
+
+    duration_string = str(distance_between(waypoint.to_pos, waypoint.from_pos) / bot_speed)
+    return datetime.timedelta(
+        seconds=int(duration_string.split('.')[0]),
+        microseconds=int(duration_string.split('.')[1][:6])
+    )
 
 def get_payload_by_id(id: str, payloads: List[Payload]) -> Optional[Payload]:
     """
