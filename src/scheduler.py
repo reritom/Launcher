@@ -1162,6 +1162,7 @@ class Scheduler:
             logger.debug(f"Waypoints before new ones {len(flight_plan.waypoints)}")
             # We are stretching for the first time on this flight plan
             # TODO, Really the towers should define their waiting areas
+
             if start_delta.total_seconds():
                 logger.debug("Looking at the launch part")
 
@@ -1333,14 +1334,17 @@ class Scheduler:
         self.add_positions_to_action_waypoints(flight_plan)
         logger.debug(f"Waypoints after new ones {len(flight_plan.waypoints)}")
 
+        logger.debug(f"Old flight plan end time {original_end_time} - start time {original_start_time} = {original_end_time - original_start_time} == {(original_end_time - original_start_time).total_seconds()}")
         old_duration = original_end_time - original_start_time
         old_duration = without_microseconds(old_duration)
 
         new_duration = flight_plan.end_time - flight_plan.start_time
+        logger.debug(f"New flight plan end time {flight_plan.end_time} - start time {flight_plan.start_time} = {flight_plan.end_time - flight_plan.start_time} == {(flight_plan.end_time - flight_plan.start_time).total_seconds()} == {new_duration.total_seconds()}")
         new_duration = without_microseconds(new_duration)
+        logger.debug(f"New duration after strip {new_duration} == {new_duration.total_seconds()}")
 
-        logger.debug(f"Old flight plan duration {old_duration}, new duration {new_duration} by extending {start_delta} and {end_delta}")
-        logger.debug(f"New flight time {new_duration}, expected new flight time {old_duration + start_delta + end_delta}")
+        logger.debug(f"Old flight plan duration {old_duration.total_seconds()}, new duration {new_duration.total_seconds()} by extending {start_delta} and {end_delta}")
+        logger.debug(f"New flight time {new_duration.total_seconds()}, expected new flight time {old_duration.total_seconds() + start_delta.total_seconds() + end_delta.total_seconds()}")
         assert old_duration + start_delta + end_delta == new_duration, old_duration + start_delta + end_delta - new_duration
 
     def fit_flight_plan_into_tower_allocations(self, flight_plan: FlightPlan) -> bool:

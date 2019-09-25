@@ -1,7 +1,23 @@
 import unittest
+import datetime
 import math as maths
 
-from .tools import distance_between, find_middle_position_by_ratio
+from .tools import distance_between, find_middle_position_by_ratio, without_microseconds
+
+class TestWithoutMicroseconds(unittest.TestCase):
+    def test_without_microseconds(self):
+        delta = datetime.timedelta(seconds=30, microseconds=400000)
+        processed = without_microseconds(delta)
+
+        self.assertEqual(processed.seconds, delta.seconds)
+        self.assertEqual(processed.microseconds, 0)
+
+    def test_without_microseconds_with_rounding(self):
+        delta = datetime.timedelta(seconds=30, microseconds=600000)
+        processed = without_microseconds(delta)
+
+        self.assertEqual(processed.seconds, 31)
+        self.assertEqual(processed.microseconds, 0)
 
 class TestDistanceBetween(unittest.TestCase):
     def test_distance_between_1(self):
