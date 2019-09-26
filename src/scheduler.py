@@ -119,6 +119,7 @@ class Scheduler:
             self.delete_allocations_for_flight_plan(flight_plan_id=flight_plan.id)
             logger.error(f"Failed to fit flight plan {flight_plan.id} into tower allocations")
             raise ScheduleError("Unable to fit flight plan into tower launch and landing windows")
+
         logger.info("Successfully fit the flight plan into the allocations")
 
         # The allocation ids are stored in self.flight_plan_allocation_to_deallocator
@@ -164,7 +165,7 @@ class Scheduler:
             )
 
             # Add the allocation to the context
-            self.flight_plan_allocation_to_deallocator[flight_plan.id][payload_allocation_id] = self.payload_manager.delete_allocation
+            self.flight_plan_allocation_to_deallocator[flight_plan.id][payload_allocation_id] = self.payload_manager.allocator.delete_allocation
 
             # Is it located at the start tower or do we need a transit schedule?
             if payload_tower != flight_plan_start_tower:
@@ -219,7 +220,7 @@ class Scheduler:
                 )
 
                 # Add this allocation to the context
-                self.flight_plan_allocation_to_deallocator[flight_plan.id][payload_allocation_id] = self.payload_manager.delete_allocation
+                self.flight_plan_allocation_to_deallocator[flight_plan.id][payload_allocation_id] = self.payload_manager.allocator.delete_allocation
             else:
                 # We need an empty transit
 
@@ -251,7 +252,7 @@ class Scheduler:
                         )
 
                         # Add the allocation to the context
-                        self.flight_plan_allocation_to_deallocator[flight_plan.id][allocation_id] = self.payload_manager.delete_allocation
+                        self.flight_plan_allocation_to_deallocator[flight_plan.id][allocation_id] = self.payload_manager.allocator.delete_allocation
                     except AllocationError as e:
                         logger.warning(f"Failed to allocate payload {e}, will look at next")
                         continue
@@ -317,7 +318,7 @@ class Scheduler:
                 )
 
                 # Add this allocation to the context
-                self.flight_plan_allocation_to_deallocator[flight_plan.id][payload_allocation_id] = self.payload_manager.delete_allocation
+                self.flight_plan_allocation_to_deallocator[flight_plan.id][payload_allocation_id] = self.payload_manager.allocator.delete_allocation
             else:
                 # We need an empty transit
 
@@ -349,7 +350,7 @@ class Scheduler:
                         )
 
                         # Add the allocation to the context
-                        self.flight_plan_allocation_to_deallocator[flight_plan.id][allocation_id] = self.payload_manager.delete_allocation
+                        self.flight_plan_allocation_to_deallocator[flight_plan.id][allocation_id] = self.payload_manager.allocator.delete_allocation
                     except AllocationError as e:
                         logger.warning(f"Failed to allocate bot {e}, will try the next")
                         continue
@@ -895,7 +896,7 @@ class Scheduler:
         # We want to refuel sufficiently before we reach the recharge position
         bot = flight_plan.meta.bot_model
         time_to_refuel_before_end_of_leg = (
-            bot.flight_time
+            datetime.timedelta(seconds=bot.flight_time)
             - self.refuel_duration
             - self.remaining_flight_time_at_refuel
             - self.refuel_anticipation_buffer
@@ -1411,6 +1412,7 @@ class Scheduler:
         # Consider the first nearest window
         nearest_landing_window = nearest_landing_windows[0]
         logger.debug(f"Nearest landing window to {flight_plan.end_time} is {nearest_landing_window[1]}")
+        logger.info(f"Trying to make flight plan start at {nearest_launch_window[2]} and end at {nearest_landing_window[1]}")
 
         # Copy the flight plan and strip it to make it raw
         #print("original")
@@ -1429,11 +1431,8 @@ class Scheduler:
         logger.debug(f"Flight plan waypoint count before stretch {len(flight_plan.waypoints)}")
 
         # Determine the deltas
-        start_delta = flight_plan.start_time - nearest_launch_window[2]
-        start_delta = start_delta - datetime.timedelta(microseconds=start_delta.microseconds)
-
-        end_delta = nearest_landing_window[1] - flight_plan.end_time
-        end_delta = end_delta - datetime.timedelta(microseconds=end_delta.microseconds)
+        start_delta = without_microseconds(flight_plan.start_time - nearest_launch_window[2])
+        end_delta = without_microseconds(nearest_landing_window[1] - flight_plan.end_time)
 
         # Stretch the flight plan
         self.stretch_flight_plan(
@@ -1441,18 +1440,6 @@ class Scheduler:
             start_delta=start_delta,
             end_delta=end_delta
         )
-
-        # We need to reapproximate the timings to account for the new legs
-        """ These should be done as part of the stretch
-        self.approximate_timings(
-            flight_plan=flight_plan_copy,
-            launch_time=nearest_launch_window[2]
-        )
-
-        logger.debug(f"Flight plan waypoint count after stretch {len(flight_plan_copy.waypoints)}")
-        logger.debug(f"Flight plan start and end after stretching {flight_plan_copy.start_time} {flight_plan_copy.end_time}")
-        self.add_positions_to_action_waypoints(flight_plan_copy)
-        """
 
         # Recalculate the flight plan to add the refueling points
         logger.debug("Recalculation in stretch")
@@ -1468,19 +1455,22 @@ class Scheduler:
         # If the recalculated flight plan has the same number of refuel waypoint as the original, apply it to the original
         if flight_plan_copy.refuel_waypoint_count == flight_plan.refuel_waypoint_count:
             logger.debug("Breaking fit recursion")
-            flight_plan.copy_from(flight_plan_copy)
-
-            # Copying doesn't copy approximations so we apply them again
-            self.approximate_timings(
-                flight_plan=flight_plan,
-                launch_time=nearest_launch_window[2]
-            )
-            self.add_positions_to_action_waypoints(flight_plan)
+            flight_plan.copy_from(flight_plan_copy, full_copy=True)
+            assert flight_plan.start_time == flight_plan_copy.start_time
+            assert flight_plan.end_time == flight_plan_copy.end_time
+            logger.debug(f"At end of stretch, start time is {flight_plan.start_time}, end time is {flight_plan.end_time}")
             return True
 
         # Else recurse on the stretched flight plan and then apply it to the original
         logger.debug("Recursing fit")
-        return self.fit_flight_plan_into_tower_allocations(flight_plan_copy)
+        recurse_flag = self.fit_flight_plan_into_tower_allocations(flight_plan_copy)
+
+        if recurse_flag:
+            logger.debug(f"In stretch, recursed child was successful, applying changes. Flight plan starts at {flight_plan_copy.start_time} and ends at {flight_plan_copy.end_time}")
+            flight_plan.copy_from(flight_plan_copy, full_copy=True)
+            return True
+        else:
+            return self.fit_flight_plan_into_tower_allocations(flight_plan_copy)
 
     def allocate_flight_plan(self, flight_plan: FlightPlan) -> bool:
         """
@@ -1507,7 +1497,7 @@ class Scheduler:
         ]
 
         nearest_window = nearest_windows[0]
-        if nearest_window[2] == flight_plan.start_time:
+        if nearest_window[2] == without_microseconds(flight_plan.start_time):
             try:
                 allocation_id = launch_tower.allocate_launch(
                     flight_plan_id=flight_plan.id,
@@ -1535,11 +1525,11 @@ class Scheduler:
         ]
 
         nearest_window = nearest_windows[0]
-        if nearest_window[1] == flight_plan.end_time:
+        if nearest_window[1] == without_microseconds(flight_plan.end_time):
             try:
                 allocation_id = landing_tower.allocate_landing(
                     flight_plan_id=flight_plan.id,
-                    date=flight_plan.start_time,
+                    date=flight_plan.end_time,
                     interval=nearest_window[0]
                 )
                 self.flight_plan_allocation_to_deallocator[flight_plan.id][allocation_id] = landing_tower.deallocate_landing
@@ -1547,7 +1537,7 @@ class Scheduler:
                 logger.warning(f"Failed to allocate landing for {flight_plan.id}")
                 return False
         else:
-            logger.warning(f"Failed to allocate landing window for {flight_plan.id}, interval mismatch")
+            logger.warning(f"Failed to allocate landing window for {flight_plan.id}, interval mismatch nearest landing window start is {nearest_window[1]}, flight plan ends at {flight_plan.end_time}")
             return False
 
         return True

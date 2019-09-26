@@ -1,4 +1,4 @@
-import uuid, json
+import uuid, json, copy
 
 class Waypoint:
     """
@@ -45,7 +45,15 @@ class Waypoint:
     def to_dict(self) -> dict:
         raise NotImplementedError()
 
-    def copy(self):
+    def copy(self, full_copy=False):
         this_dict = self.to_dict()
         this_json = json.dumps(this_dict)
-        return type(self).from_dict(json.loads(this_json))
+        instance = type(self).from_dict(json.loads(this_json))
+
+        if full_copy:
+            if self.start_time:
+                instance.start_time = copy.copy(self.start_time)
+            if self.end_time:
+                instance.end_time = copy.copy(self.end_time)
+
+        return instance

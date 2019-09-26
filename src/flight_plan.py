@@ -214,12 +214,12 @@ class FlightPlan:
             meta=self.meta
         )
 
-    def copy_from(self, other_flight_plan: 'FlightPlan'):
+    def copy_from(self, other_flight_plan: 'FlightPlan', full_copy=False):
         """
         Overwrite this flight plan with the contents of another
         """
         self.waypoints = [
-            waypoint.copy()
+            waypoint.copy(full_copy)
             for waypoint in other_flight_plan.waypoints
         ]
 

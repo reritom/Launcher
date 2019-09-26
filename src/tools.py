@@ -14,7 +14,11 @@ def without_microseconds(delta: datetime.timedelta) -> datetime.timedelta:
     """
     For a given timedelta object remove the microseconds
     """
-    return datetime.timedelta(seconds=round(delta.total_seconds()))
+    if isinstance(delta, datetime.timedelta):
+        return datetime.timedelta(seconds=round(delta.total_seconds()))
+    else:
+        microseconds = delta.microsecond
+        return delta - datetime.timedelta(microseconds=microseconds)
 
 def distance_between(position_a: tuple, position_b: tuple) -> tuple:
     return maths.sqrt(
