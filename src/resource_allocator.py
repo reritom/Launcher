@@ -46,10 +46,11 @@ class ResourceAllocator:
                 to_datetime > allocation.from_datetime and to_datetime <= allocation.to_datetime
                 or from_datetime >= allocation.from_datetime and from_datetime < allocation.to_datetime
             ):
-                logger.warning(f"Allocation from {allocation.from_datetime} to {allocation.to_datetime}")
-                logger.warning(f"Attempted allocation from {from_datetime} to {to_datetime}")
+                logger.warning(f"Allocation from {allocation.from_datetime} to {allocation.to_datetime} already taken by {allocation}")
+                logger.warning(f"Attempted allocation from {from_datetime} to {to_datetime} failed for resource id {resource_id}")
                 raise AllocationError(f"Resource {resource_id} already allocated")
 
+        logger.info(f"Allocating {from_datetime} to {to_datetime} {kwargs}")
         self.allocator[resource_id].append(
             Allocation(
                 id=uuid.uuid4(),

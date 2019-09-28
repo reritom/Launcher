@@ -1,4 +1,4 @@
-import json, uuid
+import json, uuid, datetime
 from typing import Optional
 import logging
 
@@ -202,9 +202,18 @@ class FlightPlan:
             and self.finishing_tower == other.finishing_tower
         )
 
+    @property
+    def static_duration(self) -> datetime.timedelta:
+        """
+        This is the duration based on the set start and end times of this flight plan
+        """
+        assert self.start_time and self.end_time
+        return self.end_time - self.start_time
+
     def copy(self) -> 'FlightPlan':
         cls = type(self)
         return cls(
+            id=self.id,
             waypoints=[
                 waypoint.copy()
                 for waypoint in self.waypoints

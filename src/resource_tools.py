@@ -18,14 +18,18 @@ def print_waypoints(flight_plan):
     logger.debug("End of printing waypoints")
 
 def get_waypoint_duration(waypoint, bot_speed: int) -> datetime.timedelta:
+    logger.debug(f"Getting waypoint duration for {waypoint} and speed {bot_speed}")
     if waypoint.is_action:
         return waypoint.duration
 
-    duration_string = str(distance_between(waypoint.to_pos, waypoint.from_pos) / bot_speed)
-    return datetime.timedelta(
+    duration_string = str(float(distance_between(waypoint.to_pos, waypoint.from_pos)) / float(bot_speed))
+    logger.debug(f"Waypoint duration is {duration_string}")
+    converted = datetime.timedelta(
         seconds=int(duration_string.split('.')[0]),
-        microseconds=int(duration_string.split('.')[1][:6])
+        microseconds=int(duration_string.split('.')[1][:6].ljust(6, "0"))
     )
+    logger.debug(f"Converted to {converted}")
+    return converted
 
 def get_payload_by_id(id: str, payloads: List[Payload]) -> Optional[Payload]:
     """

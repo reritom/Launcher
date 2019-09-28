@@ -18,7 +18,10 @@ def without_microseconds(delta: datetime.timedelta) -> datetime.timedelta:
         return datetime.timedelta(seconds=round(delta.total_seconds()))
     else:
         microseconds = delta.microsecond
-        return delta - datetime.timedelta(microseconds=microseconds)
+        without = delta - datetime.timedelta(microseconds=microseconds)
+        if microseconds > 500000:
+            without = without + datetime.timedelta(seconds=1)
+        return without
 
 def distance_between(position_a: tuple, position_b: tuple) -> tuple:
     return maths.sqrt(

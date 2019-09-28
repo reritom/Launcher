@@ -27,7 +27,7 @@ class IntervalResourceAllocator(ResourceAllocator):
         Returns the allocation id or raises an AllocationError
         """
         from_datetime = datetime.datetime.strptime(date.strftime("%d/%m/%Y"), "%d/%m/%Y") + (interval)*self.interval_duration
-        to_datetime = from_datetime + (interval+1)*self.interval_duration
+        to_datetime = from_datetime + self.interval_duration
         allocation_blob = {'interval': interval}
         allocation_blob.update(kwargs)
 

@@ -115,6 +115,7 @@ class Scheduler:
 
         # Attempt to stretch the flight plan to fit it into launch and landing slots
         logger.info("Attempting to fit flight plan into tower allocations from determine_schedule")
+        logger.info(f"Before fitting, flight plan starts at {flight_plan.start_time} and ends at {flight_plan.end_time}")
         if not self.fit_flight_plan_into_tower_allocations(flight_plan):
             self.delete_allocations_for_flight_plan(flight_plan_id=flight_plan.id)
             logger.error(f"Failed to fit flight plan {flight_plan.id} into tower allocations")
@@ -297,6 +298,7 @@ class Scheduler:
                 self.delete_allocations_for_flight_plan(flight_plan_id=flight_plan.id)
                 raise ScheduleError(f"No available bots for specified model {flight_plan.meta.bot_model}")
 
+            logger.debug(f"There are {len(available_bots)} bots available")
             # Which are available at our tower
             available_at_this_tower = [
                 bot
@@ -799,7 +801,7 @@ class Scheduler:
                     try:
                         refuel_schedule = self.determine_schedule(
                             flight_plan=flight_plan,
-                            waypoint_eta=refuel_waypoint.start_time - datetime.timedelta(seconds=self.refuel_anticipation_buffer),
+                            waypoint_eta=refuel_waypoint.start_time - self.refuel_anticipation_buffer,
                             waypoint_id="critical"
                         )
                         break
@@ -906,7 +908,7 @@ class Scheduler:
         #THIS IS WRONG, AND ALSO CONSIDER THAT IF THE NEWLY CALCULATED RECHARGE POINT IS AT THE TOWER LOCATION, DONT BOTHER
 
         leg_waypoint = flight_plan.waypoints[giving_recharge_index - 2]
-        leg_time = int(distance_between(leg_waypoint.from_pos, leg_waypoint.to_pos)/bot.speed)
+        leg_time = datetime.timedelta(seconds=int(distance_between(leg_waypoint.from_pos, leg_waypoint.to_pos)/bot.speed))
 
         # We will split the leg into two legs with a refuel inbetween
         overshoot_ratio = (leg_time - time_to_refuel_before_end_of_leg) / leg_time
@@ -1296,7 +1298,7 @@ class Scheduler:
                     generated=True
                 )
 
-                late_landing_leg_time = get_waypoint_duration(late_landing_leg,bot.speed)
+                late_landing_leg_time = get_waypoint_duration(late_landing_leg, bot.speed)
                 logger.debug(f"Late landing leg time {late_landing_leg_time}")
 
                 # Insert the new last leg and modify the existing leg
@@ -1385,6 +1387,7 @@ class Scheduler:
 
         # Consider the first nearest window
         nearest_launch_window = nearest_launch_windows[0]
+        logger.debug(f"Nearest launch window is {nearest_launch_window}")
 
         # Now find the nearest landing window (looking after the landing time)
         nearest_landing_intervals = landing_tower.landing_allocator.get_nearest_intervals_to_window_start(flight_plan.end_time)
@@ -1461,6 +1464,9 @@ class Scheduler:
             logger.debug(f"At end of stretch, start time is {flight_plan.start_time}, end time is {flight_plan.end_time}")
             return True
 
+        logger.debug(f"After stretch, refuel count is {flight_plan_copy.refuel_waypoint_count} instead of {flight_plan.refuel_waypoint_count}")
+        logger.debug(f"So flight plan is {(flight_plan_copy.static_duration - flight_plan.static_duration).total_seconds()} seconds longer")
+
         # Else recurse on the stretched flight plan and then apply it to the original
         logger.debug("Recursing fit")
         recurse_flag = self.fit_flight_plan_into_tower_allocations(flight_plan_copy)
@@ -1499,6 +1505,7 @@ class Scheduler:
         nearest_window = nearest_windows[0]
         if nearest_window[2] == without_microseconds(flight_plan.start_time):
             try:
+                logger.debug("Attempting to allocate launch")
                 allocation_id = launch_tower.allocate_launch(
                     flight_plan_id=flight_plan.id,
                     date=flight_plan.start_time,
@@ -1527,6 +1534,7 @@ class Scheduler:
         nearest_window = nearest_windows[0]
         if nearest_window[1] == without_microseconds(flight_plan.end_time):
             try:
+                logger.debug("Attempting to allocate landing")
                 allocation_id = landing_tower.allocate_landing(
                     flight_plan_id=flight_plan.id,
                     date=flight_plan.end_time,
@@ -1567,6 +1575,7 @@ class Scheduler:
         for tracker in reversed(bot_tracker.tracker):
             if reference_time <= tracker['to_datetime'] and reference_time >= tracker['from_datetime']:
                 # The payload is allocated for this time and has not static location
+                logger.error(f"Reference time {reference_time} lies in or on {tracker['from_datetime']} to {tracker['to_datetime']}")
                 raise TrackerError("Bot is allocated, can't determine tower for given time")
             elif reference_time > tracker['to_datetime']:
                 return self.get_tower_by_id(tracker['to_tower'])
