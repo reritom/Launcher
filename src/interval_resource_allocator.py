@@ -10,7 +10,7 @@ class IntervalResourceAllocator(ResourceAllocator):
     """
     This module extends the resource manager to only allow allocation of predefined intervals.
     """
-    def __init__(self, interval_duration: datetime.timedelta, resources: Optional[List[Resource]] = None):
+    def __init__(self, reference: str, interval_duration: datetime.timedelta, resources: Optional[List[Resource]] = None):
         self.interval_duration = interval_duration
         assert isinstance(self.interval_duration, datetime.timedelta)
 
@@ -19,7 +19,7 @@ class IntervalResourceAllocator(ResourceAllocator):
 
         # This is for storing allocation data for interval based referencing
         self.days = {}
-        super().__init__(resources=resources)
+        super().__init__(reference=reference, resources=resources)
 
     def allocate_resource(self, resource_id: str, date: datetime.datetime, interval: int, **kwargs) -> str:
         """

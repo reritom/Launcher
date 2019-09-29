@@ -30,12 +30,14 @@ class Tower:
         # Create the resource managers for the launchers and landers
         launch_resources = [Resource(id=i) for i in range(parallel_launchers)]
         self.launch_allocator = IntervalResourceAllocator(
+            reference=f"{self.id}Launcher",
             interval_duration=datetime.timedelta(seconds=self.launch_time),
             resources=launch_resources
         )
 
         landing_resources = [Resource(id=i) for i in range(parallel_landers)]
         self.landing_allocator = IntervalResourceAllocator(
+            reference=f"{self.id}Lander",
             interval_duration=datetime.timedelta(seconds=self.landing_time),
             resources=landing_resources
         )
@@ -43,11 +45,13 @@ class Tower:
         # Create the resource managers for the bot and payload bays
         payload_bay_resources = [Resource(id=i) for i in range(payload_capacity)]
         self.payload_bay_allocator = ResourceAllocator(
+            reference=f"{self.id}PayloadBay",
             resources=payload_bay_resources
         )
 
         bot_bay_resources = [Resource(id=i) for i in range(bot_capacity)]
         self.bot_bay_allocator = ResourceAllocator(
+            reference=f"{self.id}BotBay",
             resources=bot_bay_resources
         )
 

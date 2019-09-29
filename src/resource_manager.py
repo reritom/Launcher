@@ -1,5 +1,5 @@
 from typing import List
-import datetime
+import datetime, uuid
 import logging
 
 logger = logging.getLogger(__name__)
@@ -13,9 +13,10 @@ class ResourceManager:
     We create an allocator that handles all the resources
     And a resource tracker for each of the resources
     """
-    def __init__(self, resources: List[Resource]):
+    def __init__(self, reference: str, resources: List[Resource]):
         self.resources = resources
-        self.allocator = ResourceAllocator(resources)
+        self.reference = reference
+        self.allocator = ResourceAllocator(reference=reference, resources=resources)
         self.trackers = {}
 
     def set_tracker(self, resource_id: str, initial_context: dict):
@@ -32,8 +33,22 @@ class ResourceManager:
             to_datetime=to_datetime
         )
 
+    def delete_allocation(allocation_id: str):
+        """
+        Delete an allocation by allocation id, and delete the associated tracker
+        """
+        allocation = self.allocator.get_allocation_by_id(allocation_id)
+        if allocation:
+            for track in self.trackers[allocation.resource_id]:
+                if track['tracker_id'] == allocation.blob['tracker_id']:
+                    self.trackers[allocation.resource_id].pop(track)
+
+        return self.allocator.delete_allocation(allocation_id)
+
+
     def allocate_resource(self, resource_id: str, from_datetime: datetime.datetime, to_datetime: datetime.datetime, **kwargs) -> bool:
         tracker_dict = {
+            'tracker_id': str(uuid.uuid4()),
             'from_datetime': from_datetime,
             'to_datetime': to_datetime
         }
@@ -44,5 +59,6 @@ class ResourceManager:
             resource_id=resource_id,
             from_datetime=from_datetime,
             to_datetime=to_datetime,
+            tracker_id=tracker_dict['tracker_id'],
             **kwargs
         )

@@ -66,7 +66,7 @@ payloads = [
     for payload in payloads_json['payloads']
 ]
 
-payload_manager = ResourceManager(payloads)
+payload_manager = ResourceManager(reference="PayloadManager", resources=payloads)
 
 # Create the bot manager
 with open(f"./examples/demo_{DEMO_NUMBER}/bots_1.json", 'r') as f:
@@ -80,7 +80,7 @@ bots = [
     for bot in bot_json['bots']
 ]
 
-bot_manager = ResourceManager(bots)
+bot_manager = ResourceManager(reference="BotManager", resources=bots)
 
 # The BotManager and PayloadManager need their trackers initialised using the data from the tower_json
 # which says the initial inventory of each tower

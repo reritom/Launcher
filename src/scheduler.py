@@ -80,6 +80,7 @@ class Scheduler:
         For a given flight plan, determine when all the supporting bots need to be deployed and their
         respective flight plans
         """
+        logger.debug("\n\n\n\n")
         assert launch_time or landing_time or (waypoint_eta and waypoint_id)
         assert flight_plan.has_meta
 
@@ -166,7 +167,7 @@ class Scheduler:
             )
 
             # Add the allocation to the context
-            self.flight_plan_allocation_to_deallocator[flight_plan.id][payload_allocation_id] = self.payload_manager.allocator.delete_allocation
+            self.flight_plan_allocation_to_deallocator[flight_plan.id][payload_allocation_id] = self.payload_manager.delete_allocation
 
             # Is it located at the start tower or do we need a transit schedule?
             if payload_tower != flight_plan_start_tower:
@@ -237,6 +238,7 @@ class Scheduler:
                 )
 
                 for payload in available_payloads:
+                    logger.debug(f"Iterating available payloads")
                     from_tower = self.get_payload_tower_for_given_time(
                         payload_id=payload.id,
                         reference_time=flight_time.start_time
@@ -253,7 +255,7 @@ class Scheduler:
                         )
 
                         # Add the allocation to the context
-                        self.flight_plan_allocation_to_deallocator[flight_plan.id][allocation_id] = self.payload_manager.allocator.delete_allocation
+                        self.flight_plan_allocation_to_deallocator[flight_plan.id][allocation_id] = self.payload_manager.delete_allocation
                     except AllocationError as e:
                         logger.warning(f"Failed to allocate payload {e}, will look at next")
                         continue
@@ -320,7 +322,7 @@ class Scheduler:
                 )
 
                 # Add this allocation to the context
-                self.flight_plan_allocation_to_deallocator[flight_plan.id][payload_allocation_id] = self.payload_manager.allocator.delete_allocation
+                self.flight_plan_allocation_to_deallocator[flight_plan.id][payload_allocation_id] = self.payload_manager.delete_allocation
             else:
                 # We need an empty transit
 
@@ -352,7 +354,7 @@ class Scheduler:
                         )
 
                         # Add the allocation to the context
-                        self.flight_plan_allocation_to_deallocator[flight_plan.id][allocation_id] = self.payload_manager.allocator.delete_allocation
+                        self.flight_plan_allocation_to_deallocator[flight_plan.id][allocation_id] = self.payload_manager.delete_allocation
                     except AllocationError as e:
                         logger.warning(f"Failed to allocate bot {e}, will try the next")
                         continue
@@ -385,6 +387,10 @@ class Scheduler:
                 else:
                     self.delete_allocations_for_flight_plan(flight_plan_id=flight_plan.id)
                     raise ScheduleError("Unable to create transit schedule for bot model")
+
+        # TODO If the landing tower isnt the same as the starting tower, check whether the bot or payload have a future allocation expecting them to be at the start tower
+        # If so, we need to create a return transit schedule that returns the resource before its next allocation
+        # TODO
 
         # For each refueling waypoint in the flight plan, create a resupply flight plan
         if flight_plan.refuel_waypoints:
@@ -774,7 +780,10 @@ class Scheduler:
             for index, flight_plan in enumerate(dummy_potential_flight_plans):
                 for refuel_index, refuel_bot_schema in enumerate(self.get_refuel_bot_schemas()):
                     # Attach the meta
-                    meta = FlightPlanMeta(bot_model=refuel_bot_schema)
+                    meta = FlightPlanMeta(
+                        bot_model=refuel_bot_schema,
+                        payload_model=self.get_refuel_payload_schema()
+                    )
                     flight_plan.set_meta(meta)
 
                     # We need to prevent a recursive loop by pre-recalculating the flight plan
@@ -1587,7 +1596,8 @@ class Scheduler:
         """
         Return a list of bots of a given model available at the given time window
         """
-        return [
+        logger.debug("Getting available bots for given window")
+        bots = [
             bot
             for bot in self.bot_manager.resources
             if bot.schema.model == bot_model
@@ -1597,11 +1607,14 @@ class Scheduler:
                 to_datetime=to_datetime
             )
         ]
+        logger.debug(f"There are {len(bots)} available")
+        return bots
 
     def is_payload_available(self, payload_id: str, from_datetime: datetime.datetime, to_datetime: datetime.datetime) -> bool:
         """
         Check if a given payload is available for a given time window
         """
+        logger.debug(f"Checking if payload {payload_id} is available")
         return self.payload_manager.is_allocation_available(
             resource_id=payload_id,
             from_datetime=from_datetime,
@@ -1623,20 +1636,21 @@ class Scheduler:
 
         # We check the trackers to determine the tower location for the given time
         for tracker in reversed(payload_tracker.tracker):
-            if reference_time <= tracker['to_datetime'] and reference_time >= tracker['from_datetime']:
+            if reference_time <= tracker['to_datetime'] and reference_time > tracker['from_datetime']:
                 # The payload is allocated for this time and has not static location
                 raise TrackerError(f"Payload is allocated, can't determine tower for given time, existing tracker {tracker}, reference time {reference_time}")
             elif reference_time > tracker['to_datetime']:
                 return self.get_tower_by_id(tracker['tower_id'])
         else:
-            initial_tower_id = bot_tracker.initial_context['tower_id']
+            initial_tower_id = payload_tracker.initial_context['tower_id']
             return self.get_tower_by_id(initial_tower_id)
 
     def get_available_payloads_for_given_window(self, payload_model: str, from_datetime: datetime.datetime, to_datetime: datetime.datetime) -> List[Payload]:
         """
         Return a list of payloads of a given model available at the given time window
         """
-        return [
+        logger.debug("Getting available payloads for given window")
+        payloads =  [
             payload
             for payload in self.payload_manager.resources
             if payload.schema.model == payload_model
@@ -1646,6 +1660,8 @@ class Scheduler:
                 to_datetime=to_datetime
             )
         ]
+        logger.debug(f"There are {len(payloads)} available payloads")
+        return payloads
 
     def get_refuel_bot_schemas(self) -> Set[BotSchema]:
         """
@@ -1660,6 +1676,12 @@ class Scheduler:
         assert refuel_schemas
         assert isinstance(refuel_schemas[0], BotSchema), f"{type(list(refuel_schemas)[0])} is not a BotSchema"
         return refuel_schemas
+
+    def get_refuel_payload_schema(self) -> PayloadSchema:
+        """
+        Return the refuel payload schema, for now we assume there is only one
+        """
+        return get_payload_schema_by_model('refuel_payload_mk1', self.payload_schemas)
 
     def delete_allocations_for_flight_plan(self, flight_plan_id: str, allocation_id: str = None):
         """
