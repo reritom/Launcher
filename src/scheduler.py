@@ -1,6 +1,6 @@
 import math as maths
 from typing import List, Optional, Dict, Generator, Set
-import json, datetime, random
+import json, datetime, random, copy
 import logging
 
 logger = logging.getLogger(__name__)
@@ -66,6 +66,9 @@ class Scheduler:
         # This is like a mock db
         self.flight_plan_allocation_to_deallocator = {}
 
+        # Also like a mock db
+        self.flight_plans = {}
+
         assert remaining_flight_time_at_refuel > refuel_duration
 
     def determine_schedule(
@@ -81,6 +84,10 @@ class Scheduler:
         respective flight plans
         """
         logger.debug("\n\n\n\n")
+        if flight_plan.id in self.flight_plans:
+            raise ScheduleError("Flight plan id already exists")
+
+        self.flight_plans[flight_plan.id] = flight_plan
         assert launch_time or landing_time or (waypoint_eta and waypoint_id)
         assert flight_plan.has_meta
 
@@ -1137,19 +1144,21 @@ class Scheduler:
         schedule = Schedule.from_schedules(schedules)
         return schedule
 
-    def stretch_flight_plan(self, flight_plan: FlightPlan, start_delta: datetime.datetime, end_delta: datetime.datetime):
+    def stretch_flight_plan(self, flight_plan: FlightPlan, start_delta: datetime.datetime, end_delta: datetime.datetime, launch_time, landing_time):
         """
         For a given flight plan, add buffer waypoints at the beginning and end of the flight plan
         """
         logger.info(f"Stretching flight plan {flight_plan.id} by start {start_delta} and end {end_delta}")
+        logger.debug(f"Before stretch, duration is {(flight_plan.end_time - flight_plan.start_time).total_seconds()}")
+        logger.debug(f"Expected start time is {launch_time} and landing time {landing_time} which takes {(landing_time-launch_time).total_seconds()}")
 
         launch_tower = self.get_tower_by_id(flight_plan.starting_tower)
         landing_tower = self.get_tower_by_id(flight_plan.finishing_tower)
 
         logger.debug(f"Flight plan meta is {flight_plan.meta}")
         bot = flight_plan.meta.bot_model
-        original_start_time = flight_plan.start_time
-        original_end_time = flight_plan.end_time
+        original_start_time = copy.copy(flight_plan.start_time)
+        original_end_time = copy.copy(flight_plan.end_time)
 
         if (
             flight_plan.waypoints[0].is_leg
@@ -1358,6 +1367,8 @@ class Scheduler:
         logger.debug(f"Old flight plan duration {old_duration.total_seconds()}, new duration {new_duration.total_seconds()} by extending {start_delta} and {end_delta}")
         logger.debug(f"New flight time {new_duration.total_seconds()}, expected new flight time {old_duration.total_seconds() + start_delta.total_seconds() + end_delta.total_seconds()}")
         assert old_duration + start_delta + end_delta == new_duration, old_duration + start_delta + end_delta - new_duration
+        assert without_microseconds(flight_plan.start_time) == launch_time, f"Flight plan start {without_microseconds(flight_plan.start_time)} doesnt match {launch_time}"
+        assert without_microseconds(flight_plan.end_time) == landing_time, f"Flight plan end {without_microseconds(flight_plan.end_time)} doesnt match {landing_time}"
 
     def fit_flight_plan_into_tower_allocations(self, flight_plan: FlightPlan) -> bool:
         """
@@ -1396,7 +1407,7 @@ class Scheduler:
 
         # Consider the first nearest window
         nearest_launch_window = nearest_launch_windows[0]
-        logger.debug(f"Nearest launch window is {nearest_launch_window}")
+        logger.debug(f"Nearest launch window to {flight_plan.start_time} is {nearest_launch_window[2]}")
 
         # Now find the nearest landing window (looking after the landing time)
         nearest_landing_intervals = landing_tower.landing_allocator.get_nearest_intervals_to_window_start(flight_plan.end_time)
@@ -1450,7 +1461,9 @@ class Scheduler:
         self.stretch_flight_plan(
             flight_plan=flight_plan_copy,
             start_delta=start_delta,
-            end_delta=end_delta
+            end_delta=end_delta,
+            launch_time=nearest_launch_window[2],
+            landing_time=nearest_landing_window[1]
         )
 
         # Recalculate the flight plan to add the refueling points
