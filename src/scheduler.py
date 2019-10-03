@@ -1144,13 +1144,11 @@ class Scheduler:
         schedule = Schedule.from_schedules(schedules)
         return schedule
 
-    def stretch_flight_plan(self, flight_plan: FlightPlan, start_delta: datetime.datetime, end_delta: datetime.datetime, launch_time, landing_time):
+    def stretch_flight_plan(self, flight_plan: FlightPlan, start_delta: datetime.datetime, end_delta: datetime.datetime):
         """
         For a given flight plan, add buffer waypoints at the beginning and end of the flight plan
         """
         logger.info(f"Stretching flight plan {flight_plan.id} by start {start_delta} and end {end_delta}")
-        logger.debug(f"Before stretch, duration is {(flight_plan.end_time - flight_plan.start_time).total_seconds()}")
-        logger.debug(f"Expected start time is {launch_time} and landing time {landing_time} which takes {(landing_time-launch_time).total_seconds()}")
 
         launch_tower = self.get_tower_by_id(flight_plan.starting_tower)
         landing_tower = self.get_tower_by_id(flight_plan.finishing_tower)
@@ -1159,6 +1157,7 @@ class Scheduler:
         bot = flight_plan.meta.bot_model
         original_start_time = copy.copy(flight_plan.start_time)
         original_end_time = copy.copy(flight_plan.end_time)
+        logger.debug(f"Before stretch, original end time {original_end_time}, original start time {original_start_time}")
 
         if (
             flight_plan.waypoints[0].is_leg
@@ -1367,8 +1366,6 @@ class Scheduler:
         logger.debug(f"Old flight plan duration {old_duration.total_seconds()}, new duration {new_duration.total_seconds()} by extending {start_delta} and {end_delta}")
         logger.debug(f"New flight time {new_duration.total_seconds()}, expected new flight time {old_duration.total_seconds() + start_delta.total_seconds() + end_delta.total_seconds()}")
         assert old_duration + start_delta + end_delta == new_duration, old_duration + start_delta + end_delta - new_duration
-        assert without_microseconds(flight_plan.start_time) == launch_time, f"Flight plan start {without_microseconds(flight_plan.start_time)} doesnt match {launch_time}"
-        assert without_microseconds(flight_plan.end_time) == landing_time, f"Flight plan end {without_microseconds(flight_plan.end_time)} doesnt match {landing_time}"
 
     def fit_flight_plan_into_tower_allocations(self, flight_plan: FlightPlan) -> bool:
         """
@@ -1376,6 +1373,7 @@ class Scheduler:
         This operates on the FlightPlan in place and returns a boolean if it is able to and has successfully done so
         """
         logger.info(f"Fitting flight plan {flight_plan.id} into tower allocations")
+        logger.debug(f"At start of fit, there are {flight_plan.refuel_waypoint_count} refuel waypoints")
         assert flight_plan.is_approximated, print_waypoints(flight_plan)
         self.validate_flight_plan(flight_plan)
 
@@ -1383,7 +1381,7 @@ class Scheduler:
         landing_tower = self.get_tower_by_id(flight_plan.finishing_tower)
 
         # Find the nearest launch window (looking before the launch time)
-        nearest_launch_intervals = launch_tower.launch_allocator.get_nearest_intervals_to_window_end(flight_plan.start_time)
+        nearest_launch_intervals = launch_tower.launch_allocator.get_nearest_intervals_to_window_end(without_microseconds(flight_plan.start_time))
         if not nearest_launch_intervals:
             logger.warning(f"No intervals available for launch day {flight_plan.start_time} at tower {launch_tower} flight plan {flight_plan.id}")
             return False
@@ -1410,7 +1408,7 @@ class Scheduler:
         logger.debug(f"Nearest launch window to {flight_plan.start_time} is {nearest_launch_window[2]}")
 
         # Now find the nearest landing window (looking after the landing time)
-        nearest_landing_intervals = landing_tower.landing_allocator.get_nearest_intervals_to_window_start(flight_plan.end_time)
+        nearest_landing_intervals = landing_tower.landing_allocator.get_nearest_intervals_to_window_start(without_microseconds(flight_plan.end_time))
         if not nearest_landing_intervals:
             logger.warning(f"No intervals available for landing day {flight_plan.end_time} at tower {landing_tower} flight plan {flight_plan.id}")
             return False
@@ -1438,12 +1436,7 @@ class Scheduler:
         logger.info(f"Trying to make flight plan start at {nearest_launch_window[2]} and end at {nearest_landing_window[1]}")
 
         # Copy the flight plan and strip it to make it raw
-        #print("original")
-        #print_waypoints(flight_plan)
         flight_plan_copy = flight_plan.from_original_state()
-        #print("copy")
-        #print_waypoints(flight_plan_copy)
-
         self.add_positions_to_action_waypoints(flight_plan_copy)
         self.approximate_timings(
             flight_plan=flight_plan_copy,
@@ -1461,9 +1454,7 @@ class Scheduler:
         self.stretch_flight_plan(
             flight_plan=flight_plan_copy,
             start_delta=start_delta,
-            end_delta=end_delta,
-            launch_time=nearest_launch_window[2],
-            landing_time=nearest_landing_window[1]
+            end_delta=end_delta
         )
 
         # Recalculate the flight plan to add the refueling points
@@ -1476,6 +1467,7 @@ class Scheduler:
             flight_plan=flight_plan_copy,
             launch_time=nearest_launch_window[2]
         )
+        assert flight_plan_copy.static_duration >= flight_plan.static_duration, f"new {flight_plan_copy.static_duration} !>= old {flight_plan.static_duration}"
 
         # If the recalculated flight plan has the same number of refuel waypoint as the original, apply it to the original
         if flight_plan_copy.refuel_waypoint_count == flight_plan.refuel_waypoint_count:
@@ -1483,22 +1475,19 @@ class Scheduler:
             flight_plan.copy_from(flight_plan_copy, full_copy=True)
             assert flight_plan.start_time == flight_plan_copy.start_time
             assert flight_plan.end_time == flight_plan_copy.end_time
+            assert flight_plan.start_time == nearest_launch_window[2], f"{flight_plan.start_time} != {nearest_launch_window[2]}"
+            assert flight_plan.end_time == nearest_landing_window[1], f"{flight_plan.end_time} != {nearest_landing_window[1]}"
             logger.debug(f"At end of stretch, start time is {flight_plan.start_time}, end time is {flight_plan.end_time}")
             return True
-
-        logger.debug(f"After stretch, refuel count is {flight_plan_copy.refuel_waypoint_count} instead of {flight_plan.refuel_waypoint_count}")
-        logger.debug(f"So flight plan is {(flight_plan_copy.static_duration - flight_plan.static_duration).total_seconds()} seconds longer")
-
-        # Else recurse on the stretched flight plan and then apply it to the original
-        logger.debug("Recursing fit")
-        recurse_flag = self.fit_flight_plan_into_tower_allocations(flight_plan_copy)
-
-        if recurse_flag:
-            logger.debug(f"In stretch, recursed child was successful, applying changes. Flight plan starts at {flight_plan_copy.start_time} and ends at {flight_plan_copy.end_time}")
-            flight_plan.copy_from(flight_plan_copy, full_copy=True)
-            return True
         else:
-            return self.fit_flight_plan_into_tower_allocations(flight_plan_copy)
+            # Stretching caused us to need more refuel points, which makes the flight plan longer, so it will need to fit wider allocations
+            logger.debug(f"After stretch, refuel count is {flight_plan_copy.refuel_waypoint_count} instead of {flight_plan.refuel_waypoint_count}")
+            logger.debug(f"So flight plan is {(flight_plan_copy.static_duration - flight_plan.static_duration).total_seconds()} seconds longer")
+
+            # Else recurse on the stretched flight plan and then apply it to the original
+            logger.debug("Recursing fit")
+            flight_plan.copy_from(flight_plan_copy, full_copy=True)
+            return self.fit_flight_plan_into_tower_allocations(flight_plan)
 
     def allocate_flight_plan(self, flight_plan: FlightPlan) -> bool:
         """
